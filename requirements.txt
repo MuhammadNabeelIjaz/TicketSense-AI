@@ -1,0 +1,16 @@
+# Core data handling & numerical operations
+pandas==3.1.1
+numpy==2.5.5
+
+# Machine learning & model persistence
+scikit-learn==1.9.1
+joblib==1.6.0
+
+# Evaluation visualization
+matplotlib==3.11.2
+
+# Application user interface
+streamlit==1.67.0
+
+# Testing framework
+pytest==9.2.0
