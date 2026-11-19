@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables and app secrets
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Testing caches
+.pytest_cache/
+
+# Local archives and untracked notes
+archive/
+
+# Data directories (raw, processed, corrections)
+data/raw/*
+data/processed/*
+data/corrections/*
+
+# Generated model files (ignore models, allow metadata.json)
+models/*
+!models/metadata.json
+
+# Preserve .gitkeep files in otherwise empty directories
+!**/.gitkeep
