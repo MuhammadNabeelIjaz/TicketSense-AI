@@ -44,3 +44,9 @@ def test_text_cleaner_transformer():
     assert len(transformed) == 2
     assert "cannot" in transformed[0]
     assert "me@" not in transformed[1]
+
+
+def test_clean_text_non_string_types():
+    assert clean_text(12345) == "12345"
+    assert clean_text(99.99) == "99 99"
+    assert clean_text(None) == ""

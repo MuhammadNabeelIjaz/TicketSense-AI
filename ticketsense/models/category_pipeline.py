@@ -17,7 +17,7 @@ from ticketsense.config import (
     REPORTS_DIR,
 )
 from ticketsense.data.loader import load_dataset_splits
-from ticketsense.nlp.preprocessor import clean_text
+from ticketsense.nlp.preprocessor import clean_text, TextCleaner
 from ticketsense.models.persistence import save_model_bundle
 from ticketsense.models.evaluator import (
     evaluate_classification,
@@ -46,6 +46,7 @@ def build_category_pipeline(
         scikit-learn Pipeline instance.
     """
     pipeline = Pipeline([
+        ("cleaner", TextCleaner()),
         (
             "tfidf",
             TfidfVectorizer(
@@ -94,16 +95,13 @@ def train_category_model(
     X_val_raw = val_df["ticket_text"].tolist()
     y_val = val_df["category"].tolist()
 
-    X_train = [clean_text(t) for t in X_train_raw]
-    X_val = [clean_text(t) for t in X_val_raw]
-
-    # Build and train pipeline
+    # Build and train pipeline directly on raw text strings (TextCleaner is step 1)
     pipeline = build_category_pipeline()
-    pipeline.fit(X_train, y_train)
+    pipeline.fit(X_train_raw, y_train)
 
-    # Validation predictions and probabilities
-    y_val_pred = pipeline.predict(X_val)
-    val_probas = pipeline.predict_proba(X_val)
+    # Validation predictions and probabilities on raw text
+    y_val_pred = pipeline.predict(X_val_raw)
+    val_probas = pipeline.predict_proba(X_val_raw)
     val_confidences = np.max(val_probas, axis=1).tolist()
 
     # Evaluation

@@ -1,6 +1,6 @@
 {
   "model_name": "TF-IDF + LogisticRegression Category Classifier",
-  "timestamp_utc": "2026-11-23T10:15:02.747674+00:00",
+  "timestamp_utc": "2026-11-23T10:26:07.174099+00:00",
   "train_samples": 400,
   "val_samples": 100,
   "classes": [

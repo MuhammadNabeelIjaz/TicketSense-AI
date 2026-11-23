@@ -62,3 +62,36 @@ def test_validate_batch_dataframe_missing_column():
     is_valid, msg, _ = validate_batch_dataframe(df)
     assert is_valid is False
     assert "must contain" in msg.lower()
+
+
+def test_validate_batch_dataframe_with_nans_and_mixed_types():
+    df = pd.DataFrame({
+        "ticket_text": [
+            None,
+            "nan",
+            "   ",
+            12345,
+            99.99,
+            "Valid customer ticket message here.",
+        ]
+    })
+    is_valid, msg, std_df = validate_batch_dataframe(df)
+    assert is_valid is True
+    # 3 valid rows: '12345', '99.99', 'Valid customer ticket message here.'
+    assert len(std_df) == 3
+    for text in std_df["ticket_text"]:
+        assert isinstance(text, str)
+        assert len(text) >= 5
+
+
+def test_validate_batch_dataframe_all_nans():
+    df = pd.DataFrame({"ticket_text": [None, "nan", "  \n  ", "null", float("nan")]})
+    is_valid, msg, _ = validate_batch_dataframe(df)
+    assert is_valid is False
+    assert "empty, invalid, or too short" in msg.lower()
+
+
+def test_validate_ticket_text_non_string():
+    is_valid, msg = validate_ticket_text(12345)
+    assert is_valid is False
+    assert "must be a string" in msg.lower()

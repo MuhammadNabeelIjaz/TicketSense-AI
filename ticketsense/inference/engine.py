@@ -29,6 +29,8 @@ def extract_ticket_summary(text: str, max_chars: int = 120) -> str:
     Returns:
         Extracted summary sentence.
     """
+    if not isinstance(text, str):
+        text = str(text) if text is not None else ""
     clean = text.strip().replace("\n", " ")
     sentences = [s.strip() for s in clean.split(".") if s.strip()]
     if not sentences:
@@ -146,7 +148,8 @@ class InferenceEngine:
             return False, "Model is not loaded.", pd.DataFrame(), {}
 
         cleaned_texts = [clean_text(t) for t in valid_df["ticket_text"]]
-        all_probas = self.pipeline.predict_proba(cleaned_texts)
+        # Pipeline accepts raw text list directly via TextCleaner
+        all_probas = self.pipeline.predict_proba(valid_df["ticket_text"].tolist())
 
         results = []
         uncertain_count = 0
@@ -169,7 +172,7 @@ class InferenceEngine:
                 "confidence": u_diag["confidence"],
                 "is_uncertain": u_diag["is_uncertain"],
                 "uncertainty_reason": u_diag["reason"],
-                "priority": p_info["heuristic_priority"],
+                "provisional_priority_heuristic": p_info["heuristic_priority"],
                 "priority_status": p_info["priority_status"],
                 "issue_summary": summary,
             })

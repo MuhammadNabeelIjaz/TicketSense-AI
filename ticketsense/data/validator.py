@@ -86,20 +86,32 @@ def validate_batch_dataframe(df: pd.DataFrame) -> Tuple[bool, str, pd.DataFrame]
     if target_col != "ticket_text":
         standardized["ticket_text"] = standardized[target_col]
 
-    # Filter out empty or invalid texts
     initial_count = len(standardized)
-    standardized["ticket_text"] = standardized["ticket_text"].astype(str).str.strip()
-    standardized = standardized[standardized["ticket_text"] != ""]
-    standardized = standardized[standardized["ticket_text"].str.lower() != "nan"]
 
+    # Filter out null / NaN entries
+    standardized = standardized.dropna(subset=["ticket_text"]).copy()
+
+    # Convert to stripped string
+    standardized["ticket_text"] = standardized["ticket_text"].astype(str).str.strip()
+
+    # Filter out empty strings and stringified representations of nulls
+    null_string_values = {"", "nan", "none", "null", "undefined", "n/a"}
+    is_not_null = ~standardized["ticket_text"].str.lower().isin(null_string_values)
+    standardized = standardized[is_not_null].copy()
+
+    # Filter out tickets below minimum character length
+    is_valid_len = standardized["ticket_text"].str.len() >= MIN_TICKET_CHAR_LENGTH
+    standardized = standardized[is_valid_len].copy()
+
+    standardized = standardized.reset_index(drop=True)
     valid_count = len(standardized)
     dropped = initial_count - valid_count
 
     if valid_count == 0:
-        return False, "All rows in the uploaded CSV contained empty or invalid text.", pd.DataFrame()
+        return False, "All rows in the uploaded CSV contained empty, invalid, or too short text.", pd.DataFrame()
 
     msg = f"Successfully validated {valid_count} rows."
     if dropped > 0:
-        msg += f" ({dropped} empty/invalid rows were filtered out)."
+        msg += f" ({dropped} empty/invalid/short rows were filtered out)."
 
     return True, msg, standardized

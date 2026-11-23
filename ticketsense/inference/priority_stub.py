@@ -20,6 +20,9 @@ def assess_priority(ticket_text: str) -> Dict[str, Any]:
     Returns:
         Dict detailing priority policy status and heuristic guidance.
     """
+    if not isinstance(ticket_text, str):
+        ticket_text = str(ticket_text) if ticket_text is not None else ""
+
     # Heuristic indicator based on approved high-impact keywords
     lower = ticket_text.lower()
     heuristic = "Medium"

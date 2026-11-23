@@ -85,6 +85,10 @@ class TextCleaner(BaseEstimator, TransformerMixin):
     def transform(self, X: Union[List[str], Any]) -> List[str]:
         if hasattr(X, "tolist"):
             items = X.tolist()
+        elif isinstance(X, (list, tuple)):
+            items = list(X)
+        elif isinstance(X, str):
+            items = [X]
         else:
             items = list(X)
         return [clean_text(item) for item in items]
