@@ -140,9 +140,14 @@ class InferenceEngine:
         Returns:
             Tuple of (success: bool, message: str, enriched_df: pd.DataFrame, stats: Dict[str, Any]).
         """
-        is_valid, val_msg, valid_df = validate_batch_dataframe(df)
+        is_valid, val_msg, valid_df, rejected_df = validate_batch_dataframe(df)
         if not is_valid:
-            return False, val_msg, pd.DataFrame(), {}
+            stats = {
+                "total_uploaded": len(df) if isinstance(df, pd.DataFrame) else 0,
+                "rejected_count": len(rejected_df),
+                "rejected_df": rejected_df,
+            }
+            return False, val_msg, pd.DataFrame(), stats
 
         if not self.is_ready():
             return False, "Model is not loaded.", pd.DataFrame(), {}
@@ -183,9 +188,12 @@ class InferenceEngine:
         category_counts = enriched_df["predicted_category"].value_counts().to_dict()
 
         stats = {
+            "total_uploaded": len(df),
             "total_processed": len(enriched_df),
+            "rejected_count": len(rejected_df),
+            "rejected_df": rejected_df,
             "uncertain_count": uncertain_count,
-            "uncertain_percentage": round(uncertain_count / len(enriched_df) * 100, 1),
+            "uncertain_percentage": round(uncertain_count / len(enriched_df) * 100, 1) if len(enriched_df) > 0 else 0.0,
             "category_distribution": category_counts,
         }
 

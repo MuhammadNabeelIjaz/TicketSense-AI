@@ -37,29 +37,32 @@ def test_validate_ticket_text_too_long():
 
 
 def test_validate_batch_dataframe_valid(sample_batch_df):
-    is_valid, msg, std_df = validate_batch_dataframe(sample_batch_df)
+    is_valid, msg, std_df, rejected_df = validate_batch_dataframe(sample_batch_df)
     assert is_valid is True
     assert len(std_df) == 5
+    assert len(rejected_df) == 0
     assert "ticket_text" in std_df.columns
+    assert "original_row_number" in std_df.columns
 
 
 def test_validate_batch_dataframe_alternative_column():
     df = pd.DataFrame({"message": ["Valid ticket text for classification."]})
-    is_valid, msg, std_df = validate_batch_dataframe(df)
+    is_valid, msg, std_df, rejected_df = validate_batch_dataframe(df)
     assert is_valid is True
     assert "ticket_text" in std_df.columns
     assert len(std_df) == 1
+    assert len(rejected_df) == 0
 
 
 def test_validate_batch_dataframe_empty():
-    is_valid, msg, _ = validate_batch_dataframe(pd.DataFrame())
+    is_valid, msg, _, rejected_df = validate_batch_dataframe(pd.DataFrame())
     assert is_valid is False
     assert "no rows" in msg.lower()
 
 
 def test_validate_batch_dataframe_missing_column():
     df = pd.DataFrame({"wrong_col": [1, 2, 3]})
-    is_valid, msg, _ = validate_batch_dataframe(df)
+    is_valid, msg, _, rejected_df = validate_batch_dataframe(df)
     assert is_valid is False
     assert "must contain" in msg.lower()
 
@@ -75,10 +78,16 @@ def test_validate_batch_dataframe_with_nans_and_mixed_types():
             "Valid customer ticket message here.",
         ]
     })
-    is_valid, msg, std_df = validate_batch_dataframe(df)
+    is_valid, msg, std_df, rejected_df = validate_batch_dataframe(df)
     assert is_valid is True
     # 3 valid rows: '12345', '99.99', 'Valid customer ticket message here.'
     assert len(std_df) == 3
+    assert len(rejected_df) == 3
+    # Check rejection tracking
+    assert "original_row_number" in rejected_df.columns
+    assert "rejection_reason" in rejected_df.columns
+    assert list(rejected_df["original_row_number"]) == [1, 2, 3]
+
     for text in std_df["ticket_text"]:
         assert isinstance(text, str)
         assert len(text) >= 5
@@ -86,9 +95,10 @@ def test_validate_batch_dataframe_with_nans_and_mixed_types():
 
 def test_validate_batch_dataframe_all_nans():
     df = pd.DataFrame({"ticket_text": [None, "nan", "  \n  ", "null", float("nan")]})
-    is_valid, msg, _ = validate_batch_dataframe(df)
+    is_valid, msg, _, rejected_df = validate_batch_dataframe(df)
     assert is_valid is False
     assert "empty, invalid, or too short" in msg.lower()
+    assert len(rejected_df) == 5
 
 
 def test_validate_ticket_text_non_string():

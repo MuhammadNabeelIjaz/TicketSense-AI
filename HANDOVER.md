@@ -18,7 +18,7 @@ The application successfully implements all core features mandated in `docs/01_P
 3. **Auditable Human Correction Logging:** Seamless support agent override panel that logs ground-truth corrections to an append-only CSV (`data/corrections/runtime_corrections.csv`) without altering underlying datasets.
 4. **Uncertainty Quantification:** Flags low confidence ($< 65\%$) and ambiguous inter-class margins ($< 15\%$) for mandatory human verification.
 5. **Governance Compliance:** Adheres strictly to the project policy pausing supervised priority training pending Gate G1 supervisor review, while providing rule-based heuristic triage.
-6. **Automated Verification:** 25/25 automated unit and integration tests passing with 100% success rate under pytest.
+6. **Automated Verification:** 37/37 automated unit, integration, and UI tests passing with 100% success rate under pytest.
 
 ---
 

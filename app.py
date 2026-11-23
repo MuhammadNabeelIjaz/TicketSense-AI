@@ -78,6 +78,12 @@ def render_single_ticket_tab(engine: InferenceEngine):
         "Ambiguous / Uncertain Edge Case": "My account was billed twice but I also cannot log in to download my invoice.",
     }
 
+    # Session state initialization for persistence across widget reruns
+    if "single_prediction" not in st.session_state:
+        st.session_state.single_prediction = None
+    if "single_ticket_text" not in st.session_state:
+        st.session_state.single_ticket_text = ""
+
     selected_sample = st.selectbox(
         "Select a sample ticket or enter your own below:",
         options=list(samples.keys()),
@@ -109,7 +115,7 @@ def render_single_ticket_tab(engine: InferenceEngine):
         st.write("")
         predict_clicked = st.button("Classify Ticket", type="primary", use_container_width=True)
 
-    if predict_clicked or (ticket_input and selected_sample != "Custom Message"):
+    if predict_clicked or (ticket_input and selected_sample != "Custom Message" and ticket_input != st.session_state.single_ticket_text):
         if not ticket_input.strip():
             st.warning("Please enter a support ticket message before classifying.")
             return
@@ -118,8 +124,16 @@ def render_single_ticket_tab(engine: InferenceEngine):
         result = engine.predict_ticket(ticket_input)
 
         if not result["success"]:
+            st.session_state.single_prediction = None
             st.error(f"Validation Error: {result.get('error')}")
             return
+        else:
+            st.session_state.single_prediction = result
+            st.session_state.single_ticket_text = ticket_input
+
+    if st.session_state.single_prediction is not None:
+        result = st.session_state.single_prediction
+        active_text = st.session_state.single_ticket_text
 
         st.markdown("---")
         st.markdown("### 📊 Classification Output")
@@ -192,7 +206,7 @@ def render_single_ticket_tab(engine: InferenceEngine):
 
             if submit_correction:
                 success = log_manual_correction(
-                    ticket_text=ticket_input,
+                    ticket_text=active_text,
                     predicted_category=result["predicted_category"],
                     predicted_confidence=result["confidence"],
                     corrected_category=corrected_cat,
@@ -214,6 +228,11 @@ def render_batch_tab(engine: InferenceEngine):
         "The file must contain a `ticket_text`, `text`, or `message` column."
     )
 
+    if "batch_enriched_df" not in st.session_state:
+        st.session_state.batch_enriched_df = None
+    if "batch_stats" not in st.session_state:
+        st.session_state.batch_stats = None
+
     uploaded_file = st.file_uploader("Upload Ticket CSV", type=["csv"])
 
     if uploaded_file is not None:
@@ -228,9 +247,30 @@ def render_batch_tab(engine: InferenceEngine):
 
                 if not success:
                     st.error(f"Batch Processing Failed: {msg}")
+                    st.session_state.batch_enriched_df = None
+                    st.session_state.batch_stats = None
                     return
 
+                st.session_state.batch_enriched_df = enriched_df
+                st.session_state.batch_stats = stats
                 st.success(msg)
+
+            if st.session_state.batch_enriched_df is not None:
+                enriched_df = st.session_state.batch_enriched_df
+                stats = st.session_state.batch_stats
+
+                # Flagged / rejected rows expander if any invalid rows existed
+                if stats.get("rejected_count", 0) > 0:
+                    with st.expander(f"⚠️ {stats['rejected_count']} Invalid Rows Were Flagged and Excluded", expanded=True):
+                        st.warning("The following rows contained missing text, stringified nulls, or were below the minimum 5 characters:")
+                        st.dataframe(stats["rejected_df"], use_container_width=True)
+                        rej_csv = stats["rejected_df"].to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            label="📥 Download Rejected Rows Log (CSV)",
+                            data=rej_csv,
+                            file_name="ticketsense_rejected_rows.csv",
+                            mime="text/csv",
+                        )
 
                 # Batch summary KPIs
                 kpi1, kpi2, kpi3 = st.columns(3)

@@ -59,3 +59,34 @@ def test_batch_prediction_heuristic_column_naming(inference_engine, sample_batch
     # Ensure bare ambiguous 'priority' column is not used in batch results
     assert "provisional_priority_heuristic" in enriched_df.columns
     assert "priority" not in enriched_df.columns
+
+
+def test_batch_prediction_rejected_rows_reporting(inference_engine):
+    mixed_df = pd.DataFrame({
+        "ticket_text": [
+            None,
+            "hi",  # too short (< 5 chars)
+            "Valid customer ticket message here.",
+            "Another valid message for classification.",
+        ]
+    })
+    success, msg, enriched_df, stats = inference_engine.predict_batch(mixed_df)
+    assert success is True
+    assert stats["total_uploaded"] == 4
+    assert stats["total_processed"] == 2
+    assert stats["rejected_count"] == 2
+
+    rejected_df = stats["rejected_df"]
+    assert "original_row_number" in rejected_df.columns
+    assert "rejection_reason" in rejected_df.columns
+    assert list(rejected_df["original_row_number"]) == [1, 2]
+    assert "Missing or null" in rejected_df.iloc[0]["rejection_reason"]
+    assert "too short" in rejected_df.iloc[1]["rejection_reason"].lower()
+
+
+def test_batch_prediction_all_rejected(inference_engine):
+    invalid_df = pd.DataFrame({"ticket_text": [None, "nan", "  "]})
+    success, msg, enriched_df, stats = inference_engine.predict_batch(invalid_df)
+    assert success is False
+    assert stats["rejected_count"] == 3
+    assert len(enriched_df) == 0
