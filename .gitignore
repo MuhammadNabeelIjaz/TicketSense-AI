@@ -38,8 +38,10 @@ data/processed/*
 data/corrections/*
 
 # Generated model files (ignore models, allow metadata.json)
-models/*
-!models/metadata.json
+models/*.joblib
+models/*.pkl
+!models/*.json
+!models/.gitkeep
 
 # Preserve .gitkeep files in otherwise empty directories
 !**/.gitkeep
