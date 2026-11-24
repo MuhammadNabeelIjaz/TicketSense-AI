@@ -1,205 +1,156 @@
-# TicketSense-AI: Smart Customer Support Ticket Classifier
+# TicketSense-AI: Customer Support Ticket Classifier
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests: 45 Passed](https://img.shields.io/badge/tests-45%20passed-brightgreen.svg)]()
-[![Val Accuracy: 93%](https://img.shields.io/badge/val%20accuracy-93.0%25-blueviolet.svg)]()
 [![Test Accuracy: 92%](https://img.shields.io/badge/test%20accuracy-92.0%25-success.svg)]()
-[![Priority Model: Paused](https://img.shields.io/badge/priority%20training-PAUSED%20(Gate%20G1)-orange.svg)]()
 
-TicketSense-AI is a modular, production-engineered machine learning system designed to automatically classify customer support tickets into operational categories, quantify prediction uncertainty, triage high-risk messages, and support human-in-the-loop review without mutating underlying historical datasets.
+TicketSense-AI classifies customer support tickets into five categories and shows how confident it is in each prediction. Confident predictions are accepted automatically. Uncertain or ambiguous ones are flagged for a human to review, and any corrections the reviewer makes are saved to a CSV file for later use.
 
----
-
-## Canonical Project Documentation
-
-The complete, evidence-based project report with full methodology, validation logs, independent audit verification, and deployment recommendations is available in:
-- [FINAL_PROJECT_REPORT.md](reports/FINAL_PROJECT_REPORT.md)
-
-Historical handover documents, project briefs, and milestone tracking records are preserved in:
-- [docs/archive/](docs/archive/)
+The full write-up is in [reports/FINAL_PROJECT_REPORT.md](reports/FINAL_PROJECT_REPORT.md).
 
 ---
 
-## Project Overview
+## Why this project
 
-Incoming customer support tickets are frequently ambiguous, misspelled, or operationally sensitive. TicketSense-AI provides:
-- Real-Time Single Ticket Triage: Text normalization, category prediction, confidence scoring, and issue summarization.
-- Batch CSV Processing: High-throughput prediction on uploaded datasets with interactive filtering and downloadable enriched CSVs.
-- Uncertainty Quantification: Flags low-confidence predictions (< 65%) and ambiguous class margins (< 15%) for mandatory human verification.
-- Auditable Human Correction Logging: Support agent overrides are appended to an immutable audit log (`data/corrections/runtime_corrections.csv`) to enable active learning without altering historical training records.
-- Governance Guardrails: Priority machine learning training is explicitly paused pending Gate G1 supervisor sign-off due to class imbalance (6.5% High priority) and active review queues.
+Support teams receive many tickets about billing, account access, deliveries and software problems. Routing them by hand is slow and inconsistent. A plain classifier speeds this up, but it always returns an answer, even for vague or off-topic messages. TicketSense-AI adds a confidence check so that the system only acts on predictions it is reasonably sure about, and a person handles the rest.
 
 ---
 
-## System Architecture
+## Features
+
+- **Single ticket triage:** predicts the category, shows calibrated probabilities, and gives a provisional priority.
+- **Batch CSV processing:** validates each row, rejects invalid ones with a reason, and exports the predictions as CSV.
+- **Human review flag:** a ticket is sent to review if the top probability is below 65% or the gap between the top two classes is below 15%.
+- **Manual corrections:** agents can override a prediction. Corrections are appended to `data/corrections/runtime_corrections.csv` and the training data is never modified.
+- **Dashboard:** a Streamlit app with model metrics, six evaluation charts and the correction log.
+
+Priority is currently a keyword-based heuristic, not a trained model (see [Priority](#priority)).
+
+---
+
+## Results
+
+The model is TF-IDF (unigrams and bigrams) with Multinomial Naive Bayes (`alpha=0.1`) and sigmoid probability calibration (5-fold CV on the training data).
+
+| Split | Accuracy | Macro F1 | Brier score | Log loss |
+| :--- | :--- | :--- | :--- | :--- |
+| Validation (100 tickets) | 93.0% | 0.9297 | 0.1059 | 0.2551 |
+| Test (100 tickets) | 92.0% | 0.9200 | 0.1441 | 0.3187 |
+
+**Routing on the test set** (confidence threshold 0.65, margin 0.15):
+
+- 90 of 100 tickets were accepted automatically, and 85 of those were correct (94.44%).
+- 10 of 100 tickets were sent to human review.
+- Mean confidence was 84.22%.
+
+**Per-class test results** (20 tickets per class):
+
+| Category | Precision | Recall | F1 |
+| :--- | :--- | :--- | :--- |
+| Account Access | 0.90 | 0.90 | 0.90 |
+| Billing | 0.95 | 0.95 | 0.95 |
+| Delivery | 0.95 | 0.95 | 0.95 |
+| General Inquiry | 0.95 | 0.95 | 0.95 |
+| Technical Issue | 0.85 | 0.85 | 0.85 |
+
+The report includes the confusion matrix, the experiment comparison and an analysis of the misclassified tickets.
+
+---
+
+## Dataset
+
+The dataset has 800 labelled tickets in three splits:
+
+| Split | Rows | Use |
+| :--- | :--- | :--- |
+| Train | 600 | 400 original tickets plus 200 synthetic tickets |
+| Validation | 100 | Model selection, calibration and threshold choice |
+| Test | 100 | Final evaluation only |
+
+Categories: **Account Access**, **Billing**, **Delivery**, **General Inquiry** and **Technical Issue**.
+
+The synthetic tickets were added to cover vocabulary missing from the original data. They were checked for duplicates and overlap with the validation and test sets. Details are in the report.
+
+---
+
+## Project structure
 
 ```
 TicketSense-AI/
-|-- app.py                         # Production Streamlit web application
-|-- pytest.ini                     # Pytest configuration with pythonpath
-|-- requirements.txt               # Pinned dependencies
-|-- ticketsense/                   # Core modular package
-|   |-- config.py                  # Project paths, taxonomy, and thresholds
-|   |-- data/                      # Ingestion, validation, and corrections
-|   |   |-- loader.py              # Split loader (train, validation, test)
-|   |   |-- validator.py           # Text & batch CSV schema validation
-|   |   `-- corrections.py         # Append-only human correction logger
-|   |-- nlp/                       # Natural language processing
-|   |   `-- preprocessor.py        # Text cleaning, contraction expansion, normalization
-|   |-- models/                    # ML pipeline & evaluation
-|   |   |-- category_pipeline.py   # TF-IDF + Classifier pipeline builder
-|   |   |-- evaluator.py           # Metrics, confusion matrix, and error analysis
-|   |   `-- persistence.py         # Joblib serialization with JSON metadata
-|   `-- inference/                 # Inference runtime
-|       |-- engine.py              # Unified single & batch inference engine
-|       |-- uncertainty.py         # Decision uncertainty quantification
-|       `-- priority_stub.py       # Priority governance stub (PAUSED per Gate G1)
-|-- scripts/                       # Training, optimization, and evaluation CLI tools
-|   |-- train.py                   # CLI runner for reproducible model training
-|   |-- generate_synthetic_expansion.py # Balanced training data expansion generator
-|   |-- validate_synthetic_expansion.py # Leakage & quality validation script
-|   |-- run_optimization_experiments.py # Multi-model optimization & calibration runner
-|   |-- evaluate_threshold_tradeoffs.py # Routing trade-off analysis script
-|   |-- evaluate_final_test_set.py      # Untouched benchmark test evaluator
-|   `-- run_qa_manual_checklist.py      # 10-point automated QA test runner
-|-- tests/                         # Comprehensive automated test suite (37 tests)
-|   |-- conftest.py                # Pytest fixtures
-|   |-- test_app_ui.py             # Streamlit AppTest headless UI tests
-|   |-- test_batch.py              # Batch processing tests
-|   |-- test_corrections.py        # Corrections logging & immutability tests
-|   |-- test_pipeline.py           # Model loading, output shapes, calibration
-|   |-- test_preprocessing.py      # Contractions, URLs, emails, normalization
-|   |-- test_uncertainty.py        # Low-confidence & ambiguity flags
-|   `-- test_validation.py         # String boundaries & schema validation
-|-- models/                        # Serialized model artifacts
-|   |-- category_model.joblib      # Production Calibrated Multinomial NB artifact
-|   `-- category_model_metadata.json # Hyperparameters, timestamps, metrics
-|-- reports/                       # Validation & test evaluation artifacts
-|   |-- FINAL_PROJECT_REPORT.md    # Single canonical final project report
-|   |-- CATEGORY_MODEL_EVALUATION.md # Validation split evaluation breakdown
-|   |-- EXPERIMENT_RESULTS_LOG.json # Machine-readable benchmark records
-|   |-- category_confusion_matrix.png # Confusion matrix plot
-|   |-- category_validation_errors.csv # Validation error analysis
-|   `-- visualizations/            # Dedicated production visualization folder (6 chart PNGs)
-|-- docs/                          # Project documentation and milestones
-|   |-- README.md                  # Documentation index
-|   |-- archive/                   # Archived historical notes, audit logs, and legacy reports
-|   |   |-- final_independent_audit/ # Independent verification audit logs
-|   |   |-- MODEL_OPTIMIZATION_EXPERIMENTS.md # Historical optimization experiment log
-|   |   |-- HANDOVER.md
-|   |   |-- HANDOVER_2026-11-23_LEGACY.md
-|   |   `-- legacy_project_parameters.txt
-|   `-- 01_Project_Brief/ ...      # Course briefs and planning artifacts
+|-- app.py                      # Streamlit application
+|-- ticketsense/                # Core package
+|   |-- config.py               # Paths, categories, thresholds
+|   |-- data/                   # loader, validator, corrections logger
+|   |-- nlp/preprocessor.py     # Text cleaning
+|   |-- models/                 # Pipeline, evaluation, model saving/loading
+|   |-- inference/              # Prediction engine, uncertainty check, priority heuristic
+|   `-- visualization.py        # Evaluation charts
+|-- scripts/                    # Training, experiments, evaluation and QA scripts
+|-- tests/                      # 45 automated tests
+|-- models/                     # Saved model and metadata
+|-- reports/                    # Final report, experiment log, charts
 `-- data/
-    |-- processed/                 # Immutable datasets (600 train, 100 val, 100 test)
-    `-- corrections/               # Runtime agent overrides log
+    |-- processed/              # Train, validation and test data
+    `-- corrections/            # Agent corrections log
 ```
 
 ---
 
-## Dataset and Category Taxonomy
+## Getting started
 
-The operational dataset contains 800 total customer support records partitioned into three distinct splits:
-- Train (600 rows): Supervised model fitting (400 original verified records + 200 high-diversity synthetic additions).
-- Validation (100 rows): Hyperparameter tuning, calibration fitting, and threshold selection.
-- Test (100 rows): Isolated benchmark set reserved exclusively for final unblinded evaluation.
+Requires Python 3.13 and Git.
 
-### Approved Category Classes
-1. Account Access: Login failures, password resets, 2FA errors, MFA lockouts.
-2. Billing: Invoices, charges, unauthorized debits, refund disputes, subscription fees.
-3. Delivery: Shipment tracking, damaged goods, carrier delays, missing parcels.
-4. General Inquiry: Business hours, product capabilities, policy questions.
-5. Technical Issue: Software bugs, HTTP 500 errors, UI rendering glitches, crashing.
-
----
-
-## Model Architecture and Evaluation Results
-
-The production category classifier utilizes sublinear TF-IDF n-grams (1, 2) coupled with Multinomial Naive Bayes (`alpha=0.1`) and Sigmoid Probability Calibration (5-fold cross-validation).
-
-### Summary Performance Metrics
-
-| Evaluation Split | Accuracy | Macro Precision | Macro Recall | Macro F1-Score | Brier Score |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| Validation Set (100 samples) | 93.00% | 93.03% | 93.00% | 92.97% | 0.1382 |
-| Untouched Test Set (100 samples) | 92.00% | 0.9234 | 0.9200 | 0.9200 | 0.1441 |
-
-### Operational Routing on Test Set (Threshold = 0.65, Margin = 0.15)
-- Autonomous Acceptance Coverage: 90.00% (90 / 100 tickets)
-- Autonomous Prediction Accuracy: 94.44% (85 / 90 correct)
-- Human Review Routing Rate: 10.00% (10 / 100 tickets flagged)
-- Incorrect Autonomous Acceptance Rate: 5.56% (5 / 90 accepted tickets)
-
-### Per-Class Validation Breakdown (100 samples)
-- Delivery: Precision 0.952 | Recall 1.000 | F1 0.976
-- General Inquiry: Precision 1.000 | Recall 1.000 | F1 1.000
-- Billing: Precision 0.947 | Recall 0.900 | F1 0.923
-- Account Access: Precision 0.857 | Recall 0.900 | F1 0.878
-- Technical Issue: Precision 0.895 | Recall 0.850 | F1 0.872
-
----
-
-## Governance and Gate G1 Priority Policy
-
-Priority Model Training is PAUSED.
-Historical priority labels in the training set exhibit severe class imbalance (6.5% High priority) and are subject to an active 26-row review queue (`data/processed/dataset_review_required.csv`). Training supervised priority models before policy calibration risks false negatives on critical security incidents. The system provides rule-based heuristic triage indicators while supervised priority training awaits Gate G1 sign-off by Technical Supervisor Abdullah Ramzan.
-
----
-
-## Getting Started
-
-### 1. Prerequisites
-- Python 3.13.x
-- Git
-
-### 2. Installation
 ```powershell
-# Clone the repository
 git clone https://github.com/MuhammadNabeelIjaz/TicketSense-AI.git
 cd TicketSense-AI
 
-# Create and activate virtual environment
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-
-# Install pinned dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Run Automated Tests
+Run the tests (all 45 pass in under 20 seconds):
+
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```
-All 37 unit, AppTest UI, and integration tests pass in under 3.0 seconds.
 
-### 4. Reproduce Model Training
+Retrain the model. This trains on the train split, evaluates on the validation split, and saves the model to `models/` and reports to `reports/`:
+
 ```powershell
 .venv\Scripts\python.exe scripts/train.py
 ```
-This script trains the model on the expanded train split, validates on the validation split, persists `models/category_model.joblib`, and outputs evaluation artifacts to `reports/`.
 
-### 5. Launch the Streamlit Application
+Start the app at `http://localhost:8501`:
+
 ```powershell
 .venv\Scripts\streamlit.exe run app.py
 ```
-The application launches locally at `http://localhost:8501`.
 
 ---
 
-## Automated Testing Verification Summary
+## Priority
 
-The automated test suite in `tests/` covers:
-- `test_validation.py`: Null values, whitespace strings, length bounds (5 - 5000 chars), CSV schema validation.
-- `test_preprocessing.py`: Negation-preserving contraction expansion, email/URL scrubbing, symbol normalization.
-- `test_pipeline.py`: Model deserialization, probability distribution validity, sigmoid calibration preservation.
-- `test_uncertainty.py`: Low-confidence and ambiguity thresholds, human-review explanation reasoning.
-- `test_corrections.py`: Append-only logging, column preservation, dataset immutability.
-- `test_batch.py`: Batch prediction flow, output enrichment, aggregation metrics.
-- `test_app_ui.py`: Streamlit AppTest headless execution covering single ticket triage and batch CSV prediction.
+Priority prediction is an optional extension in the project brief, and supervised training for it is paused. Only 6.5% of the historical priority labels are High, and 26 rows are still waiting for review in `data/processed/dataset_review_required.csv`. Training on these labels would likely under-predict urgent tickets such as security incidents. Until the Technical Supervisor (Abdullah Ramzan) approves this at Gate G1, the app shows a keyword-based indicator (Low, Medium or High) as a hint only.
 
 ---
 
-## License and Maintainers
-Developed for the Infinitiv AI / TicketSense-AI Internship Program.
-Maintained by the TicketSense-AI Machine Learning Engineering Team.
+## Limitations
+
+- **Five categories only.** Off-topic messages are still assigned to the closest category.
+- **One label per ticket.** If a ticket contains several issues, the model picks the dominant one.
+- **Confidence is not a guarantee.** The model can be confidently wrong, usually when a ticket mixes vocabulary from two categories (for example, a refund request that mentions a late delivery).
+- **Small dataset.** 100 test tickets is enough for a good estimate but not a precise one. Each ticket moves accuracy by one percentage point.
+
+---
+
+## Tests
+
+The tests in `tests/` cover input validation, text cleaning, model loading and probability output, uncertainty flags, correction logging, batch processing, the Streamlit UI (single and batch flows) and chart generation.
+
+---
+
+## Credits
+
+Built as part of the Infinitiv AI internship program.

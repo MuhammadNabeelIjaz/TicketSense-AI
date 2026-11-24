@@ -31,6 +31,7 @@ desktop.ini
 
 # Local untracked notes and temporary scratchpads
 scratch/
+/delivery/
 
 # Historical documentation archive (preserved locally, excluded from repository tracking)
 /docs/archive/
