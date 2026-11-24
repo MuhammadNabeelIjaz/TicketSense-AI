@@ -9,6 +9,7 @@ Interactive Streamlit application providing:
 
 import os
 from pathlib import Path
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -22,6 +23,14 @@ from ticketsense.config import (
 )
 from ticketsense.inference.engine import InferenceEngine
 from ticketsense.data.corrections import log_manual_correction, load_corrections_log
+from ticketsense.visualization import (
+    plot_class_distribution,
+    plot_confusion_matrix_heatmap,
+    plot_category_performance,
+    plot_experiment_comparison,
+    plot_confidence_distribution,
+    plot_automatic_vs_manual_review,
+)
 
 
 # Page configuration
@@ -379,15 +388,51 @@ def render_performance_tab():
     else:
         st.info("Evaluation report will appear here once model training is completed.")
 
-    # Confusion matrix visual
-    cm_path = REPORTS_DIR / "category_confusion_matrix.png"
-    if cm_path.exists():
-        st.markdown("### Confusion Matrix (Validation Set)")
-        st.image(str(cm_path), caption="Validation Split Confusion Matrix (100 samples)")
+    st.markdown("---")
+    st.markdown("### Production Model Visualizations & Evaluation")
+
+    # Row 1: Dataset Distribution & Model Experiments
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### Dataset Class Distribution")
+        fig_dist = plot_class_distribution()
+        st.pyplot(fig_dist)
+        plt.close(fig_dist)
+    with col2:
+        st.markdown("#### Model Experiment Comparison")
+        fig_exp = plot_experiment_comparison()
+        st.pyplot(fig_exp)
+        plt.close(fig_exp)
+
+    # Row 2: Test Set Confusion Matrix & Category Performance
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("#### Test Set Confusion Matrix Heatmap")
+        fig_cm = plot_confusion_matrix_heatmap()
+        st.pyplot(fig_cm)
+        plt.close(fig_cm)
+    with col4:
+        st.markdown("#### Category-wise Performance")
+        fig_perf = plot_category_performance()
+        st.pyplot(fig_perf)
+        plt.close(fig_perf)
+
+    # Row 3: Confidence Distribution & Review Split
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown("#### Prediction Confidence Distribution")
+        fig_conf = plot_confidence_distribution()
+        st.pyplot(fig_conf)
+        plt.close(fig_conf)
+    with col6:
+        st.markdown("#### Automatic vs Manual Review Routing")
+        fig_rev = plot_automatic_vs_manual_review()
+        st.pyplot(fig_rev)
+        plt.close(fig_rev)
 
     # Governance Notice
     st.markdown("---")
-    st.markdown("### 📋 Governance & Gate G1 Requirements")
+    st.markdown("### Governance & Gate G1 Requirements")
     st.markdown(
         """
         - **Labeling Policy Review:** The priority classification task is subject to an active review queue (`data/processed/dataset_review_required.csv`).

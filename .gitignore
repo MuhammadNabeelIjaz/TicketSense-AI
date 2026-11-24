@@ -29,8 +29,12 @@ desktop.ini
 # Testing caches
 .pytest_cache/
 
-# Local archives and untracked notes
-archive/
+# Local untracked notes and temporary scratchpads
+scratch/
+
+# Historical documentation archive (preserved locally, excluded from repository tracking)
+/docs/archive/
+/archive/
 
 # Data directories (raw, processed, corrections)
 data/raw/*

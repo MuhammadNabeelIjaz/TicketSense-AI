@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 
 from ticketsense.config import (
     APPROVED_CATEGORIES,
@@ -28,23 +31,47 @@ from ticketsense.models.evaluator import (
 
 def build_category_pipeline(
     ngram_range: tuple = (1, 2),
-    min_df: int = 2,
-    max_df: float = 0.9,
-    C: float = 1.0,
+    min_df: int = 1,
+    max_df: float = 0.85,
+    clf_type: str = "multinomial_nb",
+    alpha: float = 0.1,
+    C: float = 5.0,
     random_state: int = RANDOM_STATE,
 ) -> Pipeline:
-    """Construct the TF-IDF + Logistic Regression classification pipeline.
+    """Construct the TF-IDF + Classifier text pipeline.
 
     Args:
         ngram_range: n-gram bounds for TF-IDF.
         min_df: minimum document frequency.
         max_df: maximum document frequency proportion.
-        C: Inverse regularization parameter for Logistic Regression.
+        clf_type: Classifier architecture ('multinomial_nb', 'linear_svc', or 'logistic_regression').
+        alpha: Smoothing parameter for MultinomialNB.
+        C: Inverse regularization parameter for LinearSVC/LogisticRegression.
         random_state: Seed for reproducibility.
 
     Returns:
-        scikit-learn Pipeline instance.
+        scikit-learn Pipeline instance with named steps ['cleaner', 'tfidf', 'clf'].
     """
+    if clf_type == "multinomial_nb":
+        classifier = MultinomialNB(alpha=alpha)
+    elif clf_type == "linear_svc":
+        classifier = LinearSVC(
+            C=C,
+            max_iter=2000,
+            class_weight="balanced",
+            random_state=random_state,
+        )
+    elif clf_type == "logistic_regression":
+        classifier = LogisticRegression(
+            C=C,
+            max_iter=1000,
+            class_weight="balanced",
+            random_state=random_state,
+            solver="lbfgs",
+        )
+    else:
+        raise ValueError(f"Unknown classifier type: {clf_type}")
+
     pipeline = Pipeline([
         ("cleaner", TextCleaner()),
         (
@@ -57,16 +84,7 @@ def build_category_pipeline(
                 token_pattern=r"(?u)\b\w+\b",
             ),
         ),
-        (
-            "clf",
-            LogisticRegression(
-                C=C,
-                max_iter=1000,
-                class_weight="balanced",
-                random_state=random_state,
-                solver="lbfgs",
-            ),
-        ),
+        ("clf", classifier),
     ])
     return pipeline
 
@@ -75,18 +93,23 @@ def train_category_model(
     save_artifacts: bool = True,
     model_path: Path = CATEGORY_MODEL_PATH,
     metadata_path: Path = CATEGORY_METADATA_PATH,
+    include_synthetic: bool = True,
+    clf_type: str = "multinomial_nb",
+    alpha: float = 0.1,
+    C: float = 5.0,
 ) -> Dict[str, Any]:
     """Train category classification pipeline on train split and evaluate on validation split.
 
     Strict guardrails:
-        - Trains only on train split (400 samples).
+        - Trains only on train split (original 400 + validated synthetic 200 = 600 samples).
+        - Calibrates using 5-fold cross-validation strictly on train split (zero data leakage).
         - Tunes and evaluates only on validation split (100 samples).
         - Test set is strictly isolated.
 
     Returns:
         Dictionary of training metadata and validation evaluation metrics.
     """
-    train_df, val_df = load_dataset_splits()
+    train_df, val_df = load_dataset_splits(include_synthetic=include_synthetic)
 
     # Preprocess text
     X_train_raw = train_df["ticket_text"].tolist()
@@ -95,13 +118,27 @@ def train_category_model(
     X_val_raw = val_df["ticket_text"].tolist()
     y_val = val_df["category"].tolist()
 
-    # Build and train pipeline directly on raw text strings (TextCleaner is step 1)
-    pipeline = build_category_pipeline()
-    pipeline.fit(X_train_raw, y_train)
+    # Build base pipeline directly on raw text strings (TextCleaner is step 1)
+    base_pipeline = build_category_pipeline(
+        clf_type=clf_type,
+        alpha=alpha,
+        C=C,
+    )
+
+    # Wrap in CalibratedClassifierCV with sigmoid calibration (5-fold CV on train data only)
+    calibrated_pipeline = CalibratedClassifierCV(
+        estimator=base_pipeline,
+        method="sigmoid",
+        cv=5,
+    )
+    calibrated_pipeline.fit(X_train_raw, y_train)
+
+    # Preserve named_steps and classes attributes for full pipeline interface compatibility
+    calibrated_pipeline.named_steps = base_pipeline.named_steps
 
     # Validation predictions and probabilities on raw text
-    y_val_pred = pipeline.predict(X_val_raw)
-    val_probas = pipeline.predict_proba(X_val_raw)
+    y_val_pred = calibrated_pipeline.predict(X_val_raw)
+    val_probas = calibrated_pipeline.predict_proba(X_val_raw)
     val_confidences = np.max(val_probas, axis=1).tolist()
 
     # Evaluation
@@ -120,19 +157,21 @@ def train_category_model(
     )
 
     metadata = {
-        "model_name": "TF-IDF + LogisticRegression Category Classifier",
+        "model_name": f"Calibrated (Sigmoid 5-Fold CV) TF-IDF + {clf_type.upper()} Category Classifier",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "train_samples": len(train_df),
         "val_samples": len(val_df),
         "classes": APPROVED_CATEGORIES,
+        "calibration": "sigmoid_5fold_cv",
+        "clf_type": clf_type,
         "hyperparameters": {
             "ngram_range": [1, 2],
-            "min_df": 2,
-            "max_df": 0.9,
+            "min_df": 1,
+            "max_df": 0.85,
             "sublinear_tf": True,
-            "C": 1.0,
-            "class_weight": "balanced",
-            "solver": "lbfgs",
+            "clf_type": clf_type,
+            "alpha": alpha if clf_type == "multinomial_nb" else None,
+            "C": C if clf_type != "multinomial_nb" else None,
             "random_state": RANDOM_STATE,
         },
         "validation_metrics": {
@@ -146,7 +185,7 @@ def train_category_model(
     }
 
     if save_artifacts:
-        save_model_bundle(pipeline, metadata, model_path, metadata_path)
+        save_model_bundle(calibrated_pipeline, metadata, model_path, metadata_path)
 
         # Save confusion matrix plot and evaluation report
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -186,7 +225,7 @@ def train_category_model(
             f.write(f"Total validation errors: {len(errors_df)} / {len(val_df)} ({len(errors_df)/len(val_df)*100:.1f}%)\n")
 
     return {
-        "pipeline": pipeline,
+        "pipeline": calibrated_pipeline,
         "metadata": metadata,
         "metrics": metrics,
         "errors_df": errors_df,

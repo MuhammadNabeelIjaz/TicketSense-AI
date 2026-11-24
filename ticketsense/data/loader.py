@@ -6,14 +6,22 @@ import pandas as pd
 from ticketsense.config import (
     TRAIN_VAL_DATASET_PATH,
     TEST_DATASET_PATH,
+    SYNTHETIC_DATA_PATH,
     APPROVED_CATEGORIES,
 )
 
 
 def load_dataset_splits(
-    file_path: Path = TRAIN_VAL_DATASET_PATH
+    file_path: Path = TRAIN_VAL_DATASET_PATH,
+    include_synthetic: bool = True,
+    synthetic_path: Path = SYNTHETIC_DATA_PATH,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Load train and validation splits from the processed dataset.
+
+    Args:
+        file_path: Path to the primary processed dataset.
+        include_synthetic: Whether to include validated synthetic expansion data in train split.
+        synthetic_path: Path to the synthetic expansion CSV.
 
     Returns:
         Tuple of (train_df: pd.DataFrame, val_df: pd.DataFrame).
@@ -31,6 +39,12 @@ def load_dataset_splits(
 
     train_df = df[df["split"] == "train"].copy().reset_index(drop=True)
     val_df = df[df["split"] == "validation"].copy().reset_index(drop=True)
+
+    # Incorporate validated synthetic expansion records into training split if available
+    if include_synthetic and synthetic_path.exists():
+        syn_df = pd.read_csv(synthetic_path, encoding="utf-8")
+        syn_train = syn_df[syn_df["split"] == "train"].copy().reset_index(drop=True)
+        train_df = pd.concat([train_df, syn_train], ignore_index=True)
 
     # Sanity checks
     if len(train_df) == 0:

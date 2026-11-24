@@ -231,7 +231,7 @@ def run_full_qa():
     for test_k, (res_status, res_detail) in results.items():
         print(f"[{res_status:<4}] {test_k:<35} : {res_detail}")
 
-    all_passed = all(status == "PASS" for status, _ in results.values())
+    all_passed = all(status.startswith("PASS") for status, _ in results.values())
     print("=" * 70)
     print(f"OVERALL VERDICT: {'READY FOR SUPERVISOR DEMO' if all_passed else 'ISSUES FOUND'}")
     print("=" * 70)

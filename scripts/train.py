@@ -14,7 +14,7 @@ def main():
     print("=" * 60)
     print("TicketSense-AI Category Model Training Runner")
     print("=" * 60)
-    print("Training on 'train' split (400 samples)...")
+    print("Training on 'train' split (400 original + 200 synthetic = 600 samples)...")
     print("Evaluating on 'validation' split (100 samples)...")
     print("Note: Test split (100 samples) remains isolated.")
 
@@ -23,6 +23,8 @@ def main():
     metrics = results["metrics"]
 
     print("\n--- Training Completed Successfully ---")
+    print(f"Model Architecture:  {meta['model_name']}")
+    print(f"Training Samples:    {meta['train_samples']}")
     print(f"Validation Accuracy: {metrics['accuracy']:.4f}")
     print(f"Macro F1-Score:      {metrics['macro_f1']:.4f}")
     print(f"Weighted F1-Score:   {metrics['weighted_f1']:.4f}")

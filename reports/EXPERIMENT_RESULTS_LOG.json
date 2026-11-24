@@ -1,0 +1,272 @@
+[
+  {
+    "id": "EXP-00",
+    "description": "Baseline: Original 400 records, uncalibrated Logistic Regression (C=1.0)",
+    "train_size": 400,
+    "data_version": "v1_original",
+    "algorithm": "LogisticRegression(C=1.0)",
+    "calibration": "none",
+    "results": {
+      "cv_accuracy_mean": 0.89,
+      "cv_accuracy_std": 0.027838821814150098,
+      "val_accuracy": 0.8,
+      "val_macro_precision": 0.7997994987468672,
+      "val_macro_recall": 0.8,
+      "val_macro_f1": 0.7996998123827391,
+      "per_category_f1": {
+        "Account Access": 0.7692307692307693,
+        "Billing": 0.85,
+        "Delivery": 0.9,
+        "General Inquiry": 0.8292682926829268,
+        "Technical Issue": 0.65
+      },
+      "brier_score": 0.46447712806522984,
+      "log_loss": 0.9458087151910154,
+      "mean_confidence": 0.42542708082897723,
+      "review_rate": 0.92,
+      "autonomous_coverage": 0.08,
+      "autonomous_accuracy": 1.0,
+      "incorrect_autonomous_count": 0
+    }
+  },
+  {
+    "id": "EXP-01",
+    "description": "Original 400 records, Sigmoid Calibrated LR (C=5.0, min_df=1, max_df=0.85)",
+    "train_size": 400,
+    "data_version": "v1_original",
+    "algorithm": "LogisticRegression(C=5.0)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9024999999999999,
+      "cv_accuracy_std": 0.03984344362627309,
+      "val_accuracy": 0.83,
+      "val_macro_precision": 0.8293954583428267,
+      "val_macro_recall": 0.8300000000000001,
+      "val_macro_f1": 0.8285970554905087,
+      "per_category_f1": {
+        "Account Access": 0.7692307692307693,
+        "Billing": 0.8421052631578947,
+        "Delivery": 0.9523809523809523,
+        "General Inquiry": 0.8292682926829268,
+        "Technical Issue": 0.75
+      },
+      "brier_score": 0.2522291936543442,
+      "log_loss": 0.4943790841262529,
+      "mean_confidence": 0.7197194400296021,
+      "review_rate": 0.34,
+      "autonomous_coverage": 0.66,
+      "autonomous_accuracy": 0.9393939393939394,
+      "incorrect_autonomous_count": 4
+    }
+  },
+  {
+    "id": "EXP-02",
+    "description": "Expanded 600 records, Uncalibrated LR (C=1.0)",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "LogisticRegression(C=1.0)",
+    "calibration": "none",
+    "results": {
+      "cv_accuracy_mean": 0.905,
+      "cv_accuracy_std": 0.02081665999466135,
+      "val_accuracy": 0.88,
+      "val_macro_precision": 0.8953784461152882,
+      "val_macro_recall": 0.8799999999999999,
+      "val_macro_f1": 0.8800529742853989,
+      "per_category_f1": {
+        "Account Access": 0.8,
+        "Billing": 0.8780487804878049,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 0.9230769230769231,
+        "Technical Issue": 0.8235294117647058
+      },
+      "brier_score": 0.4144022146025376,
+      "log_loss": 0.854266053303293,
+      "mean_confidence": 0.4592453283986385,
+      "review_rate": 0.9,
+      "autonomous_coverage": 0.1,
+      "autonomous_accuracy": 1.0,
+      "incorrect_autonomous_count": 0
+    }
+  },
+  {
+    "id": "EXP-03",
+    "description": "Expanded 600 records, Tuned TF-IDF + Sigmoid LR (C=5.0)",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "LogisticRegression(C=5.0)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9216666666666666,
+      "cv_accuracy_std": 0.017950549357115,
+      "val_accuracy": 0.9,
+      "val_macro_precision": 0.9061385347426537,
+      "val_macro_recall": 0.9,
+      "val_macro_f1": 0.9014396237550549,
+      "per_category_f1": {
+        "Account Access": 0.7906976744186046,
+        "Billing": 0.9230769230769231,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 0.9230769230769231,
+        "Technical Issue": 0.8947368421052632
+      },
+      "brier_score": 0.1731964563720824,
+      "log_loss": 0.3598965051757931,
+      "mean_confidence": 0.7691015564436302,
+      "review_rate": 0.25,
+      "autonomous_coverage": 0.75,
+      "autonomous_accuracy": 0.9866666666666667,
+      "incorrect_autonomous_count": 1
+    }
+  },
+  {
+    "id": "EXP-04",
+    "description": "Expanded 600 records, LinearSVC (C=1.0) + Sigmoid Calibration",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "LinearSVC(C=1.0)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9199999999999999,
+      "cv_accuracy_std": 0.010000000000000016,
+      "val_accuracy": 0.92,
+      "val_macro_precision": 0.9213283208020051,
+      "val_macro_recall": 0.9200000000000002,
+      "val_macro_f1": 0.9202063789868669,
+      "per_category_f1": {
+        "Account Access": 0.8292682926829268,
+        "Billing": 0.9230769230769231,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 0.95,
+        "Technical Issue": 0.9230769230769231
+      },
+      "brier_score": 0.1513421547282369,
+      "log_loss": 0.3246915084406087,
+      "mean_confidence": 0.7858325558454693,
+      "review_rate": 0.24,
+      "autonomous_coverage": 0.76,
+      "autonomous_accuracy": 0.9868421052631579,
+      "incorrect_autonomous_count": 1
+    }
+  },
+  {
+    "id": "EXP-05",
+    "description": "Expanded 600 records, MultinomialNB (alpha=0.1) + Sigmoid Calibration",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "MultinomialNB(alpha=0.1)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9216666666666666,
+      "cv_accuracy_std": 0.025603819159562023,
+      "val_accuracy": 0.93,
+      "val_macro_precision": 0.9303258145363408,
+      "val_macro_recall": 0.9299999999999999,
+      "val_macro_f1": 0.9297060662914323,
+      "per_category_f1": {
+        "Account Access": 0.8780487804878049,
+        "Billing": 0.9230769230769231,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 1.0,
+        "Technical Issue": 0.8717948717948718
+      },
+      "brier_score": 0.1059030657047842,
+      "log_loss": 0.2550820736201592,
+      "mean_confidence": 0.8270180383219443,
+      "review_rate": 0.13,
+      "autonomous_coverage": 0.87,
+      "autonomous_accuracy": 0.9885057471264368,
+      "incorrect_autonomous_count": 1
+    }
+  },
+  {
+    "id": "EXP-06",
+    "description": "Expanded 600 records, SGDClassifier(loss=log_loss) + Sigmoid Calibration",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "SGDClassifier(log_loss)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9200000000000002,
+      "cv_accuracy_std": 0.011303883305208793,
+      "val_accuracy": 0.9,
+      "val_macro_precision": 0.9061385347426537,
+      "val_macro_recall": 0.9,
+      "val_macro_f1": 0.9014396237550549,
+      "per_category_f1": {
+        "Account Access": 0.7906976744186046,
+        "Billing": 0.9230769230769231,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 0.9230769230769231,
+        "Technical Issue": 0.8947368421052632
+      },
+      "brier_score": 0.16991733617705213,
+      "log_loss": 0.351550552383693,
+      "mean_confidence": 0.7827407764186408,
+      "review_rate": 0.27,
+      "autonomous_coverage": 0.73,
+      "autonomous_accuracy": 0.9726027397260274,
+      "incorrect_autonomous_count": 2
+    }
+  },
+  {
+    "id": "EXP-07",
+    "description": "Expanded 600 records, Tuned TF-IDF + Isotonic Calibrated LR (C=5.0)",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "LogisticRegression(C=5.0)",
+    "calibration": "isotonic_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9116666666666667,
+      "cv_accuracy_std": 0.020138409955990966,
+      "val_accuracy": 0.9,
+      "val_macro_precision": 0.9007070707070708,
+      "val_macro_recall": 0.9,
+      "val_macro_f1": 0.8994235588972431,
+      "per_category_f1": {
+        "Account Access": 0.8,
+        "Billing": 0.9,
+        "Delivery": 0.9523809523809523,
+        "General Inquiry": 0.95,
+        "Technical Issue": 0.8947368421052632
+      },
+      "brier_score": 0.15299516624348233,
+      "log_loss": 0.5948435719858993,
+      "mean_confidence": 0.8474953055333482,
+      "review_rate": 0.14,
+      "autonomous_coverage": 0.86,
+      "autonomous_accuracy": 0.9534883720930233,
+      "incorrect_autonomous_count": 4
+    }
+  },
+  {
+    "id": "EXP-08",
+    "description": "Expanded 600 records, Tuned TF-IDF (max_features=5000) + Sigmoid LR (C=8.0)",
+    "train_size": 600,
+    "data_version": "v2_expanded",
+    "algorithm": "LogisticRegression(C=8.0)",
+    "calibration": "sigmoid_5cv",
+    "results": {
+      "cv_accuracy_mean": 0.9200000000000002,
+      "cv_accuracy_std": 0.022110831935702638,
+      "val_accuracy": 0.91,
+      "val_macro_precision": 0.913442697653224,
+      "val_macro_recall": 0.9099999999999999,
+      "val_macro_f1": 0.910872866970428,
+      "per_category_f1": {
+        "Account Access": 0.8095238095238095,
+        "Billing": 0.9230769230769231,
+        "Delivery": 0.975609756097561,
+        "General Inquiry": 0.9230769230769231,
+        "Technical Issue": 0.9230769230769231
+      },
+      "brier_score": 0.17978641672613158,
+      "log_loss": 0.3706108871488184,
+      "mean_confidence": 0.7699868397854327,
+      "review_rate": 0.28,
+      "autonomous_coverage": 0.72,
+      "autonomous_accuracy": 0.9861111111111112,
+      "incorrect_autonomous_count": 1
+    }
+  }
+]

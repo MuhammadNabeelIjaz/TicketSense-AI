@@ -1,21 +1,8 @@
 ticket_text,true_category,predicted_category,confidence
-I received my refund but my bank sent it back as undeliverable. Now it's stuck and I need help getting it reissued to a valid account.,Billing,Delivery,0.2821
-I'd like to set a cap on overage charges to avoid surprises.,Billing,General Inquiry,0.4013
-Your statements are confusing and don't clearly break down what each amount is for.,Billing,General Inquiry,0.3423
-Numbers use periods instead of commas for thousands in non-English locales.,Technical Issue,General Inquiry,0.3211
-After connecting my calendar every event appears three times. I disconnected the integration but the duplicates are still there. My whole calendar is a mess now.,Technical Issue,Account Access,0.2817
-CPU usage spikes to 100% for no apparent reason.,Technical Issue,Billing,0.2169
-I have notifications enabled but they're not showing up on my desktop. Nothing appears even when configured to do so.,Technical Issue,Account Access,0.2803
-Equality operator not working for custom objects.,Technical Issue,Account Access,0.3011
-Right-to-left languages like Arabic display left-to-right making them unreadable.,Technical Issue,General Inquiry,0.2326
-"I'm receiving a 429 rate limit error on my very first API call of the day, well before any limit should apply.",Technical Issue,Billing,0.3673
-You sent me a temporary password to reset but there's no way to set it up. I'm stuck with the temp password.,Account Access,Technical Issue,0.2271
-Recovery phone number is outdated and no longer mine.,Account Access,Delivery,0.2667
-Multiple concurrent logins cause session conflicts.,Account Access,Technical Issue,0.2308
-My account has been inaccessible for over a week. I am still being charged during this time. I want access restored and credit for the days I couldn't use what I paid for.,Account Access,Billing,0.415
-"I requested a magic link, it arrived, I clicked it, and nothing happened. No login, no error, just back to the homepage.",Account Access,Technical Issue,0.3074
-After 3 failed delivery attempts the carrier gives up. I get one more chance.,Delivery,Account Access,0.2768
-The reference number format is unclear making it hard to enter into the courier's system.,Delivery,Technical Issue,0.2928
-Are there any user guides or video tutorials for first-time users?,General Inquiry,Technical Issue,0.2871
-"Does the service work on Linux, or only on Windows and Mac?",General Inquiry,Technical Issue,0.2668
-How is my personal data stored and who has access to it?,General Inquiry,Technical Issue,0.2688
+I received my refund but my bank sent it back as undeliverable. Now it's stuck and I need help getting it reissued to a valid account.,Billing,Delivery,0.4536
+Your statements are confusing and don't clearly break down what each amount is for.,Billing,Technical Issue,0.3343
+"I upload a new profile photo, the progress bar completes and says done, but the old photo is still showing. The change never saves. I have tried from both mobile and desktop.",Technical Issue,Account Access,0.745
+Since I connected my Google Calendar every single event is appearing three times in the app. This has made the calendar useless and it is affecting my scheduling. I need this fixed before my next billing cycle.,Technical Issue,Account Access,0.5315
+I have notifications enabled but they're not showing up on my desktop. Nothing appears even when configured to do so.,Technical Issue,Account Access,0.5562
+Multiple concurrent logins cause session conflicts.,Account Access,Technical Issue,0.5949
+My account has been inaccessible for over a week. I am still being charged during this time. I want access restored and credit for the days I couldn't use what I paid for.,Account Access,Billing,0.5405

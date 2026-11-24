@@ -15,11 +15,14 @@ PROCESSED_DATA_DIR: Path = DATA_DIR / "processed"
 CORRECTIONS_DIR: Path = DATA_DIR / "corrections"
 MODELS_DIR: Path = PROJECT_ROOT / "models"
 REPORTS_DIR: Path = PROJECT_ROOT / "reports"
+VISUALIZATIONS_DIR: Path = REPORTS_DIR / "visualizations"
+FIGURES_DIR: Path = VISUALIZATIONS_DIR
 TESTS_DIR: Path = PROJECT_ROOT / "tests"
 
 # Dataset Files
 TRAIN_VAL_DATASET_PATH: Path = PROCESSED_DATA_DIR / "ticketsense_dataset.csv"
 TEST_DATASET_PATH: Path = PROCESSED_DATA_DIR / "ticketsense_test.csv"
+SYNTHETIC_DATA_PATH: Path = PROCESSED_DATA_DIR / "ticketsense_synthetic_expansion_v1.csv"
 RUNTIME_CORRECTIONS_PATH: Path = CORRECTIONS_DIR / "runtime_corrections.csv"
 REVIEW_QUEUE_PATH: Path = PROCESSED_DATA_DIR / "dataset_review_required.csv"
 
