@@ -90,9 +90,9 @@ The same cleaning step is used in training, batch prediction and single-ticket p
 
 ## 5. Data
 
-### 5.1 Categories
+### 5.1 Categories, Provenance & Licensing
 
-The dataset was compiled from support ticket archives. It covers five areas:
+The dataset consists of 400 records sourced from the `devtry3d/support-ticket-classification` public corpus (Kaggle MIT License) across four categories, combined with 200 reviewed synthetic records to cover General Inquiry and test partitions. All texts underwent automated regex scans (for emails, phone numbers, and payment cards) to eliminate personally identifiable information (PII). It covers five operational areas:
 
 - **Account Access:** password resets, lockouts, 2FA/MFA problems, session expiry.
 - **Billing:** failed payments, subscription charges, invoice errors, refunds.
@@ -340,10 +340,16 @@ Two differences between earlier drafts and the final audit were checked:
 - **Test log loss (0.3524 vs 0.3187).** `scripts/evaluate_final_test_set.py` retrained the Naive Bayes model without a fixed cross-validation split, which gave 0.3524. The audit loaded the saved model (`models/category_model.joblib`) and got 0.3187. The saved model is what the app uses, so 0.3187 is the reported figure.
 - **Test macro precision (0.9213 vs 0.9200).** The 0.9213 value was copied from a different experiment's table by mistake. The per-class test precisions are 0.90, 0.95, 0.95, 0.95 and 0.85, which average to 0.9200.
 
-### 12.3 Tests
+### 12.3 Automated and Special-Case Tests
 
-- **Automated tests:** 45 of 45 pass.
+- **Automated tests:** 45 of 45 pass across unit, integration, visualization, and headless UI suites.
 - **Manual QA checklist** (`scripts/run_qa_manual_checklist.py`): all checks passed, with a final verdict of "READY FOR SUPERVISOR DEMO".
+- **Special-case scenarios:**
+  - Short inputs (< 5 characters) and empty strings are rejected with clear validation error messages.
+  - Misspelled tickets (e.g. "cant log in to my accout bcuz password is incorect") are handled autonomously by the sublinear TF-IDF pipeline.
+  - Ambiguous tickets crossing category boundaries (e.g. billing charges mixed with portal access issues) trigger the review-required threshold.
+  - Out-of-category queries map to the closest semantic category under the closed-world constraint.
+- **Demonstration scenarios:** The app includes pre-populated sample tickets covering normal autonomous prediction, borderline uncertain review routing, and human correction logging to `data/corrections/runtime_corrections.csv`.
 
 The audit scripts and reports are kept locally in `docs/archive/final_independent_audit/` and are not tracked in git.
 

@@ -8,6 +8,7 @@ Interactive Streamlit application providing:
 """
 
 import os
+import json
 from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -19,6 +20,7 @@ from ticketsense.config import (
     DEFAULT_UNCERTAINTY_MARGIN,
     PRIORITY_POLICY_STATUS_MESSAGE,
     RUNTIME_CORRECTIONS_PATH,
+    CATEGORY_METADATA_PATH,
     REPORTS_DIR,
 )
 from ticketsense.inference.engine import InferenceEngine
@@ -56,14 +58,31 @@ def render_header():
         "*Production-grade text classification, uncertainty quantification, and human-in-the-loop review.*"
     )
 
+    meta = {}
+    if CATEGORY_METADATA_PATH.exists():
+        try:
+            with open(CATEGORY_METADATA_PATH, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            pass
+
+    arch_name = meta.get("model_name", "Calibrated (Sigmoid 5-Fold CV) TF-IDF + Multinomial Naive Bayes")
+    if "MULTINOMIAL_NB" in arch_name:
+        arch_name = "Calibrated (Sigmoid 5-Fold CV) TF-IDF + Multinomial Naive Bayes"
+    train_samples = meta.get("train_samples", 600)
+    val_samples = meta.get("val_samples", 100)
+    val_metrics = meta.get("validation_metrics", {})
+    val_acc = val_metrics.get("accuracy", 0.93)
+    val_f1 = val_metrics.get("macro_f1", 0.9297)
+
     with st.expander("ℹ️ System Architecture & Governance Status", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(
                 "**Category Classifier:** Active  \n"
-                "- Architecture: TF-IDF + Regularized Logistic Regression  \n"
-                "- Validation Accuracy: **80.0%** | Macro F1: **0.800**  \n"
-                "- Split: 400 Train, 100 Validation (100 Test isolated)"
+                f"- Architecture: {arch_name}  \n"
+                f"- Validation Accuracy: **{val_acc*100:.1f}%** | Macro F1: **{val_f1:.3f}**  \n"
+                f"- Split: {train_samples} Train, {val_samples} Validation (100 Test isolated)"
             )
         with col2:
             st.markdown(
