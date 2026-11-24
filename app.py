@@ -302,12 +302,61 @@ def render_batch_tab(engine: InferenceEngine):
                 elif filter_choice == "Autonomous Only":
                     display_df = display_df[display_df["is_uncertain"] == False]
 
-                st.dataframe(display_df, use_container_width=True)
+                st.caption("You can directly click and edit the 'predicted_category' column below for any ticket flagged for human review.")
+
+                column_config = {
+                    "ticket_text": st.column_config.TextColumn("ticket_text", disabled=True),
+                    "original_row_number": st.column_config.NumberColumn("original_row_number", disabled=True),
+                    "predicted_category": st.column_config.SelectboxColumn(
+                        "predicted_category",
+                        help="Select corrected category",
+                        options=APPROVED_CATEGORIES,
+                        required=True,
+                    ),
+                    "confidence": st.column_config.NumberColumn("confidence", format="%.4f", disabled=True),
+                    "is_uncertain": st.column_config.CheckboxColumn("is_uncertain", disabled=True),
+                    "uncertainty_reason": st.column_config.TextColumn("uncertainty_reason", disabled=True),
+                }
+
+                edited_display_df = st.data_editor(
+                    display_df,
+                    column_config=column_config,
+                    disabled=["ticket_text", "original_row_number", "confidence", "is_uncertain", "uncertainty_reason"],
+                    use_container_width=True,
+                    key=f"batch_editor_{filter_choice}",
+                )
+
+                # Check for human edits and offer Save button
+                if not edited_display_df["predicted_category"].equals(display_df["predicted_category"]):
+                    changed_mask = edited_display_df["predicted_category"] != display_df["predicted_category"]
+                    changed_rows = edited_display_df[changed_mask]
+                    st.info(f"You have edited {len(changed_rows)} ticket category prediction(s).")
+                    if st.button("Save Human Review Corrections", type="primary", key="save_human_review_btn"):
+                        for idx, row in changed_rows.iterrows():
+                            orig_cat = display_df.loc[idx, "predicted_category"]
+                            new_cat = row["predicted_category"]
+                            ticket_msg = row.get("ticket_text", "")
+
+                            # Update session state master dataframe
+                            st.session_state.batch_enriched_df.loc[idx, "predicted_category"] = new_cat
+                            st.session_state.batch_enriched_df.loc[idx, "is_uncertain"] = False
+                            st.session_state.batch_enriched_df.loc[idx, "uncertainty_reason"] = "Human Reviewed & Corrected"
+
+                            # Persist audit record
+                            log_manual_correction(
+                                ticket_text=ticket_msg,
+                                predicted_category=orig_cat,
+                                predicted_confidence=float(row.get("confidence", 0.0)),
+                                corrected_category=new_cat,
+                                review_notes=f"Batch UI override for row {row.get('original_row_number', idx)}",
+                            )
+                        st.success(f"Successfully saved {len(changed_rows)} human review correction(s) to the audit log!")
+                        st.rerun()
 
                 # Export CSV
-                csv_bytes = enriched_df.to_csv(index=False).encode("utf-8")
+                csv_bytes = st.session_state.batch_enriched_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
-                    label="📥 Download Enriched Predictions (CSV)",
+                    label="Download Enriched Predictions (CSV)",
                     data=csv_bytes,
                     file_name="ticketsense_batch_predictions.csv",
                     mime="text/csv",
