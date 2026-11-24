@@ -122,7 +122,7 @@ The baseline category classifier uses sublinear TF-IDF word n-grams $(1, 2)$ cou
 ### 2. Installation
 ```powershell
 # Clone the repository
-git clone https://github.com/infinitiv-ai/TicketSense-AI.git
+git clone https://github.com/MuhammadNabeelIjaz/TicketSense-AI.git
 cd TicketSense-AI
 
 # Create and activate virtual environment
@@ -137,7 +137,7 @@ pip install -r requirements.txt
 ```powershell
 .venv\Scripts\pytest.exe -v
 ```
-*(All 25 unit and integration tests pass in $< 1.0\text{s}$.)*
+*(All 37 unit, UI AppTest, and integration tests pass in $< 3.0\text{s}$.)*
 
 ### 4. Reproduce Model Training
 ```powershell
