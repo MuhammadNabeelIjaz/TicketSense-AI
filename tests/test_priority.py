@@ -136,9 +136,26 @@ def test_priority_predictor_fallback_on_invalid():
 
     res_empty = predictor.predict("")
     assert res_empty["priority"] == "Medium"
+    assert res_empty["priority_review_required"] is True
+    assert res_empty["priority_status"] == "FALLBACK_HEURISTIC"
 
     res_none = predictor.predict(None)
     assert res_none["priority"] == "Medium"
+    assert res_none["priority_review_required"] is True
+    assert res_none["priority_status"] == "FALLBACK_HEURISTIC"
+
+
+def test_priority_predictor_missing_model_fallback_safety(tmp_path):
+    """Verify missing model file triggers safe fallback and human review routing."""
+    from ticketsense.inference.priority_predictor import PriorityPredictor
+    predictor = PriorityPredictor(model_path=tmp_path / "non_existent_model.joblib")
+    assert predictor.is_ready() is False
+
+    res = predictor.predict("Emergency: database crashed and checkout is failing.")
+    assert res["priority_status"] == "FALLBACK_HEURISTIC"
+    assert res["priority_review_required"] is True
+    assert res["priority_confidence"] is None
+    assert res["is_model_trained"] is False
 
 
 def test_category_model_regression_protection(inference_engine):

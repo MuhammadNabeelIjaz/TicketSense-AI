@@ -409,7 +409,7 @@ To ensure high-risk tickets (such as enterprise database outages or account lock
 | Human review rules | Complete: Dual-channel Category and Priority review gates |
 | Synthetic data and quality checks | Complete: no duplicates, no leakage |
 | Streamlit app | Complete: Interactive single-ticket triage, batch CSV processing, dashboard, and corrections log |
-| Automated tests | Complete: 84 of 84 pass |
+| Automated tests | Complete: 85 of 85 pass |
 | Priority model | Complete: FE-3 Lexical Augmented Two-Stage Model (89.0% validation accuracy, 0.7446 Macro F1, 75.0% High Recall, 0 High False-Lows, 66.0% test accuracy). Independent Priority Uncertainty Gate operational (35.0% review rate, 65.0% autonomous coverage at 93.85% accuracy). Heuristic preserved as fallback. |
 | Filter for off-topic messages | Future work: reject non-support messages before classification |
 | Multi-label tickets | Future work: handle tickets that contain more than one issue |

@@ -82,6 +82,7 @@ try:
         "README.md",
         "requirements.txt",
         "reports/FINAL_PROJECT_REPORT.md",
+        "reports/FINAL_RELEASE_AND_SUBMISSION_VERIFICATION.md",
         "screenshots/Category_Model/01_category_confusion_matrix.png",
         "screenshots/Priority_Model/01_priority_confusion_matrix.png",
         "screenshots/Application_Overview/01_main_application_interface.png",

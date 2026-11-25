@@ -92,7 +92,7 @@ TicketSense-AI/
 |   |-- Priority_Model/         # Confusion matrix, classification report, components, routing
 |   `-- Testing_Evidence/       # Automated pytest ledger, integrity hashes, clean extraction
 |-- scripts/                    # Verification, packaging, and evaluation scripts
-|-- tests/                      # 84 automated tests (100% passing)
+|-- tests/                      # 85 automated tests (100% passing)
 |-- models/                     # Exactly TWO serialized production models and metadata
 |   |-- category_model.joblib
 |   |-- category_model_metadata.json
@@ -152,10 +152,10 @@ Priority classification predicts customer issue urgency (Low, Medium, High) base
     - Stage 1 (Impact): `TextCleaner` -> `FeatureUnion([tfidf, lexical_keywords])` -> `LogisticRegression(C=2.0, class_weight='balanced')`.
     - Stage 2 (Urgency): `TextCleaner` -> `FeatureUnion([tfidf, lexical_keywords])` -> `LogisticRegression(C=1.0, class_weight='balanced')`.
     - Stage 3 (Rubric Mapping): Deterministically maps predicted (Impact, Urgency) pairs through the authoritative 3x3 rubric matrix to determine Priority.
-  - Serialized to `models/priority_model.joblib` with metadata in `models/priority_model_metadata.json` (previous baseline preserved at `models/priority_model_baseline_backup.joblib`).
+  - Serialized to `models/priority_model.joblib` with metadata in `models/priority_model_metadata.json`.
   - **Selection Rationale:** FE-3 Lexical Augmented Two-Stage was selected as the sole primary production model because it outperforms baseline across all key dimensions: 89.00% vs 87.00% accuracy, 0.7446 vs 0.7271 Macro F1, 75.00% vs 50.00% High Recall, and achieves ZERO High False-Lows (0 vs 2) and reduced total false-lows (3 vs 8).
 - **Performance:**
-  - **Validation Set (100 samples):** Accuracy = **89.00%**, Macro F1 = **0.7446**, High Precision = 50.00%, High Recall = **75.00%**, Impact Accuracy = 90.00%, Urgency Accuracy = 90.00%, Total False-Lows = 3 (High: 0, Medium: 3), Cost-Weighted Error = **0.4100**.
+  - **Validation Set (100 samples):** Accuracy = **89.00%**, Macro F1 = **0.7446**, High Precision = 50.00%, High Recall = **75.00%**, Impact Accuracy = 90.00%, Urgency Accuracy = 90.00%, Total False-Lows = 3 (High: 0, Medium: 3), Cost-Weighted Error = **0.2600** (total penalty cost = 26).
   - **Locked Test Set (100 samples):** Accuracy = **66.00%**, Impact Accuracy = 72.00%, Urgency Accuracy = 72.00%.
 - **Provenance & Truthfulness Disclosure:**
   - Priority labels in the development corpus were derived using an experimental 3x3 Impact x Urgency rubric (`I1-I3` x `U1-U3`), not historical helpdesk SLA telemetry.
@@ -201,7 +201,7 @@ TicketSense-AI incorporates an append-only audit trail for operational agent ove
 
 ## Tests
 
-The automated test suite in `tests/` contains 84 tests covering input validation, text cleaning, category model loading and calibrated probability output, priority ML model loading and inference, independent priority uncertainty quantification, component thresholding, dual review routing, rubric matrix consistency, two-stage impact and urgency decomposition, priority heuristic word boundaries, correction logging, batch processing, and the Streamlit UI.
+The automated test suite in `tests/` contains 85 tests covering input validation, text cleaning, category model loading and calibrated probability output, priority ML model loading and inference, independent priority uncertainty quantification, component thresholding, dual review routing, rubric matrix consistency, two-stage impact and urgency decomposition, priority fallback safety, priority heuristic word boundaries, correction logging, batch processing, and the Streamlit UI.
 
 ---
 
