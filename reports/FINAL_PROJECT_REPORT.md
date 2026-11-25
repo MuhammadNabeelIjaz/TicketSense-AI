@@ -103,13 +103,16 @@ The dataset consists of 400 records sourced from the `devtry3d/support-ticket-cl
 
 ### 5.2 Splits
 
-The data is split three ways. SHA-256 hashes were recorded to confirm that the original files were never changed.
+The data is split three ways, and all production models and protected datasets are tracked by SHA-256 cryptographic hashes:
 
-| File | Rows | Use | SHA-256 |
+| Artifact / File | Rows / Size | Use | SHA-256 |
 | :--- | :--- | :--- | :--- |
-| `data/processed/ticketsense_dataset.csv` | 500 | 400 train, 100 validation | `ab28ce2070f91246cf7416b99ed732b3eac261643a61c27f9444a85b8e2e9893` |
-| `data/processed/ticketsense_test.csv` | 100 | Test only | `356bcd20c70d96daf07e3aa0a3378cebbf7a1b129b263cf08c687dc6d1ee8615` |
-| `data/processed/ticketsense_synthetic_expansion_v1.csv` | 200 | Extra training data | `9be4a2cd58ae78c989a46832d3cf84f0809e9d45ab67feae9d560f89abc1e5cb` |
+| `data/processed/ticketsense_dataset.csv` | 500 rows | 400 train, 100 validation | `ab28ce2070f91246cf7416b99ed732b3eac261643a61c27f9444a85b8e2e9893` |
+| `data/processed/ticketsense_test.csv` | 100 rows | Locked Test Set | `356bcd20c70d96daf07e3aa0a3378cebbf7a1b129b263cf08c687dc6d1ee8615` |
+| `data/processed/ticketsense_synthetic_expansion_v1.csv` | 200 rows | Targeted synthetic expansion | `9be4a2cd58ae78c989a46832d3cf84f0809e9d45ab67feae9d560f89abc1e5cb` |
+| `data/processed/dataset_review_required.csv` | 18 rows | Flagged review baseline | `83804298bb978c45a3563df99513c4294251ba02d6760a1128600dcbe3ac3de9` |
+| `models/category_model.joblib` | 4,373,856 bytes | Category Classification Model | `ab9de12f1969379c9a55bd7aaa7de5b032f7544205c3f19c4b549e92a8c367f0` |
+| `models/priority_model.joblib` | 676,357 bytes | FE-3 Priority Model | `8e323552e866f92f9a3682efa0dc5fbd596035c5c6770df39df29301bbdafdd7` |
 
 The final training set has 600 tickets: Account Access 118, Billing 120, Delivery 120, General Inquiry 120 and Technical Issue 122.
 
@@ -410,7 +413,7 @@ To ensure high-risk tickets (such as enterprise database outages or account lock
 | Synthetic data and quality checks | Complete: no duplicates, no leakage |
 | Streamlit app | Complete: Interactive single-ticket triage, batch CSV processing, dashboard, and corrections log |
 | Automated tests | Complete: 85 of 85 pass |
-| Priority model | Complete: FE-3 Lexical Augmented Two-Stage Model (89.0% validation accuracy, 0.7446 Macro F1, 75.0% High Recall, 0 High False-Lows, 66.0% test accuracy). Independent Priority Uncertainty Gate operational (35.0% review rate, 65.0% autonomous coverage at 93.85% accuracy). Heuristic preserved as fallback. |
+| Priority model | Complete: FE-3 Lexical Augmented Two-Stage Model (89.0% validation accuracy, 0.7446 Macro F1, 75.0% High Recall, 0 High False-Lows, 66.0% test accuracy, 0.2600 operational cost vs 0.4900 baseline, representing a 46.94% cost reduction). Independent Priority Uncertainty Gate operational (35.0% review rate, 65.0% autonomous coverage at 93.85% accuracy). Heuristic preserved as fallback. |
 | Filter for off-topic messages | Future work: reject non-support messages before classification |
 | Multi-label tickets | Future work: handle tickets that contain more than one issue |
 

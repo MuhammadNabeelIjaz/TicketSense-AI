@@ -155,7 +155,7 @@ Priority classification predicts customer issue urgency (Low, Medium, High) base
   - Serialized to `models/priority_model.joblib` with metadata in `models/priority_model_metadata.json`.
   - **Selection Rationale:** FE-3 Lexical Augmented Two-Stage was selected as the sole primary production model because it outperforms baseline across all key dimensions: 89.00% vs 87.00% accuracy, 0.7446 vs 0.7271 Macro F1, 75.00% vs 50.00% High Recall, and achieves ZERO High False-Lows (0 vs 2) and reduced total false-lows (3 vs 8).
 - **Performance:**
-  - **Validation Set (100 samples):** Accuracy = **89.00%**, Macro F1 = **0.7446**, High Precision = 50.00%, High Recall = **75.00%**, Impact Accuracy = 90.00%, Urgency Accuracy = 90.00%, Total False-Lows = 3 (High: 0, Medium: 3), Cost-Weighted Error = **0.2600** (total penalty cost = 26).
+  - **Validation Set (100 samples):** Accuracy = **89.00%**, Macro F1 = **0.7446**, High Precision = 50.00%, High Recall = **75.00%**, Impact Accuracy = 90.00%, Urgency Accuracy = 90.00%, Total False-Lows = 3 (High: 0, Medium: 3), Cost-Weighted Error = **0.2600** (total penalty cost = 26 points vs. 49 points baseline, representing a verified 46.94% cost reduction).
   - **Locked Test Set (100 samples):** Accuracy = **66.00%**, Impact Accuracy = 72.00%, Urgency Accuracy = 72.00%.
 - **Provenance & Truthfulness Disclosure:**
   - Priority labels in the development corpus were derived using an experimental 3x3 Impact x Urgency rubric (`I1-I3` x `U1-U3`), not historical helpdesk SLA telemetry.
