@@ -1,21 +1,25 @@
-"""TicketSense-AI — Smart Customer Support Ticket Classifier.
+"""Streamlit Interactive Application for TicketSense-AI.
 
-Interactive Streamlit application providing:
-1. Single customer message classification with real-time confidence & uncertainty alerts.
-2. Batch CSV prediction, filtering, and export.
-3. Auditable human correction logging to prevent historical dataset mutation.
-4. Model performance & governance dashboard.
+Provides real-time ticket classification, batch CSV processing,
+uncertainty routing, manual correction logging, and model governance dashboards.
 """
 
-import os
+import sys
 import json
 from pathlib import Path
-import matplotlib.pyplot as plt
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
 
 from ticketsense.config import (
+    CATEGORY_MODEL_PATH,
     APPROVED_CATEGORIES,
+    APPROVED_PRIORITIES,
     DEFAULT_UNCERTAINTY_THRESHOLD,
     DEFAULT_UNCERTAINTY_MARGIN,
     PRIORITY_POLICY_STATUS_MESSAGE,
@@ -24,7 +28,10 @@ from ticketsense.config import (
     REPORTS_DIR,
 )
 from ticketsense.inference.engine import InferenceEngine
-from ticketsense.data.corrections import log_manual_correction, load_corrections_log
+from ticketsense.data.corrections import (
+    log_manual_correction,
+    load_corrections_log,
+)
 from ticketsense.visualization import (
     plot_class_distribution,
     plot_confusion_matrix_heatmap,
@@ -38,7 +45,6 @@ from ticketsense.visualization import (
 # Page configuration
 st.set_page_config(
     page_title="TicketSense-AI",
-    page_icon="🎫",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -52,7 +58,7 @@ def get_engine() -> InferenceEngine:
 
 def render_header():
     """Render top banner and governance status."""
-    st.title("🎫 TicketSense-AI")
+    st.title("TicketSense-AI")
     st.markdown(
         "**Smart Customer Support Ticket Classifier** | "
         "*Production-grade text classification, uncertainty quantification, and human-in-the-loop review.*"
@@ -75,7 +81,7 @@ def render_header():
     val_acc = val_metrics.get("accuracy", 0.93)
     val_f1 = val_metrics.get("macro_f1", 0.9297)
 
-    with st.expander("ℹ️ System Architecture & Governance Status", expanded=False):
+    with st.expander("System Architecture & Governance Status", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(
@@ -86,9 +92,10 @@ def render_header():
             )
         with col2:
             st.markdown(
-                "**Priority Classifier:** ⏸️ **PAUSED**  \n"
-                f"- Policy Status: *{PRIORITY_POLICY_STATUS_MESSAGE}*  \n"
-                "- Guardrail: Machine learning priority training is paused pending Gate G1 supervisor approval. Heuristic indicator provided for operational triage."
+                "**Priority Classifier:** Active (Two-Stage Rubric ML Model)  \n"
+                "- Architecture: Stage 1 (Impact LR) + Stage 2 (Urgency LR) -> Stage 3 (3x3 Matrix)  \n"
+                "- Validation Accuracy: **87.0%** | Macro F1: **0.727** | High Precision: **100%**  \n"
+                "- Status: *Trained on development rubric labels (Impact x Urgency matrix). Heuristic preserved as fallback.*"
             )
 
 
@@ -113,49 +120,29 @@ def render_single_ticket_tab(engine: InferenceEngine):
         st.session_state.single_ticket_text = ""
 
     selected_sample = st.selectbox(
-        "Select a sample ticket or enter your own below:",
+        "Load Example Support Ticket:",
         options=list(samples.keys()),
         index=0,
     )
 
-    initial_text = samples[selected_sample] if selected_sample != "Custom Message" else ""
+    default_text = samples[selected_sample] if selected_sample != "Custom Message" else ""
 
     ticket_input = st.text_area(
-        "Customer Support Message:",
-        value=initial_text,
-        height=140,
-        placeholder="Type or paste incoming customer message here...",
-        help="Input must contain at least 5 characters.",
+        "Customer Support Ticket Text:",
+        value=default_text,
+        height=130,
+        placeholder="Type or paste customer inquiry here (minimum 5 characters)...",
     )
+    predict_button = st.button("Classify Ticket", type="primary")
 
-    col_btn, col_thresh = st.columns([1, 2])
-    with col_thresh:
-        uncertainty_thresh = st.slider(
-            "Human Review Confidence Threshold:",
-            min_value=0.50,
-            max_value=0.90,
-            value=DEFAULT_UNCERTAINTY_THRESHOLD,
-            step=0.05,
-            help="Predictions with confidence below this threshold are flagged for human supervisor review.",
-        )
-    with col_btn:
-        st.write("")
-        st.write("")
-        predict_clicked = st.button("Classify Ticket", type="primary", use_container_width=True)
-
-    if predict_clicked or (ticket_input and selected_sample != "Custom Message" and ticket_input != st.session_state.single_ticket_text):
+    if predict_button:
         if not ticket_input.strip():
-            st.warning("Please enter a support ticket message before classifying.")
-            return
-
-        engine.uncertainty_threshold = uncertainty_thresh
-        result = engine.predict_ticket(ticket_input)
-
-        if not result["success"]:
+            st.error("Please enter a ticket message to classify.")
             st.session_state.single_prediction = None
-            st.error(f"Validation Error: {result.get('error')}")
-            return
+            st.session_state.single_ticket_text = ""
         else:
+            with st.spinner("Analyzing ticket semantics and routing..."):
+                result = engine.predict_ticket(ticket_input)
             st.session_state.single_prediction = result
             st.session_state.single_ticket_text = ticket_input
 
@@ -164,7 +151,7 @@ def render_single_ticket_tab(engine: InferenceEngine):
         active_text = st.session_state.single_ticket_text
 
         st.markdown("---")
-        st.markdown("### 📊 Classification Output")
+        st.markdown("### Classification Output")
 
         # Top Metric Cards
         m_col1, m_col2, m_col3, m_col4 = st.columns(4)
@@ -176,27 +163,55 @@ def render_single_ticket_tab(engine: InferenceEngine):
             st.metric(label="Model Confidence", value=f"{result['confidence']:.1%}")
 
         with m_col3:
-            status_text = "⚠️ Review Required" if result["is_uncertain"] else "✅ Autonomous"
+            status_text = "Review Required" if result["is_uncertain"] else "Autonomous"
             st.metric(label="Triage Status", value=status_text)
 
         with m_col4:
-            st.metric(label="Priority (Heuristic)", value=result["priority"])
+            st.metric(label="Priority (ML)", value=result["priority"])
 
-        # Uncertainty alert
-        if result["is_uncertain"]:
+        # Intermediate Two-Stage & Priority Triage Metrics
+        p_col1, p_col2, p_col3, p_col4 = st.columns(4)
+        with p_col1:
+            imp_val = result.get("predicted_impact") or "N/A"
+            imp_conf = result.get("impact_confidence")
+            conf_str = f" ({imp_conf:.1%})" if imp_conf is not None else ""
+            st.metric(label="Predicted Impact", value=f"{imp_val}{conf_str}")
+        with p_col2:
+            urg_val = result.get("predicted_urgency") or "N/A"
+            urg_conf = result.get("urgency_confidence")
+            conf_str = f" ({urg_conf:.1%})" if urg_conf is not None else ""
+            st.metric(label="Predicted Urgency", value=f"{urg_val}{conf_str}")
+        with p_col3:
+            prio_conf = result.get("priority_confidence")
+            prio_conf_str = f"{prio_conf:.1%}" if prio_conf is not None else "N/A"
+            st.metric(label="Priority Confidence", value=prio_conf_str)
+        with p_col4:
+            prio_status_text = "Review Required" if result.get("priority_review_required") else "Autonomous"
+            st.metric(label="Priority Triage", value=prio_status_text)
+
+        # Independent Uncertainty Alerts
+        cat_flag = result.get("category_review_required", result["is_uncertain"])
+        prio_flag = result.get("priority_review_required", False)
+
+        if cat_flag:
             st.warning(
-                f"**Human Review Flagged:** {result['uncertainty_reason']}  \n"
-                "This prediction does not meet the autonomous confidence threshold and requires verification."
+                f"**Category Review Required:** {result['uncertainty_reason']}  \n"
+                "Category prediction does not meet autonomous safety threshold and requires agent verification."
             )
-        else:
-            st.success("Autonomous Prediction: Confidence exceeds safety threshold.")
+        if prio_flag:
+            st.warning(
+                f"**Priority Review Required:** {result.get('priority_uncertainty_reason', 'Uncertain Priority assignment')}  \n"
+                "Priority prediction flagged by safety guardrails and requires supervisor verification."
+            )
+        if not cat_flag and not prio_flag:
+            st.success("Autonomous Acceptance: Both Category and Priority predictions meet all safety thresholds.")
 
         # Summary and Priority Policy
         col_sum, col_pol = st.columns(2)
         with col_sum:
             st.info(f"**Issue Summary:** {result['summary']}")
         with col_pol:
-            st.caption(f"🛡️ **Priority Policy Notice:** {result['priority_policy_message']}")
+            st.caption(f"**Priority Policy Notice:** {result['priority_policy_message']}")
 
         # Class Probabilities Breakdown
         st.markdown("#### Probability Distribution")
@@ -210,26 +225,35 @@ def render_single_ticket_tab(engine: InferenceEngine):
 
         # Manual Correction Panel
         st.markdown("---")
-        st.markdown("### ✍️ Human-in-the-Loop Correction Panel")
+        st.markdown("### Human-in-the-Loop Correction Panel")
         st.markdown(
-            "If the model prediction is incorrect or uncertain, select the true category to log an auditable correction. "
+            "If the model prediction is incorrect or uncertain, select the true category and/or priority to log an auditable correction. "
             "*Original datasets remain immutable.*"
         )
 
         with st.form(key="correction_form"):
-            c_col1, c_col2 = st.columns(2)
+            c_col1, c_col2, c_col3 = st.columns(3)
             with c_col1:
                 corrected_cat = st.selectbox(
                     "Correct Category:",
                     options=APPROVED_CATEGORIES,
                     index=APPROVED_CATEGORIES.index(result["predicted_category"]),
                 )
-                reviewer_id = st.text_input("Reviewer ID / Agent Name:", value="support_agent")
             with c_col2:
-                notes = st.text_input(
-                    "Reviewer Notes / Justification:",
-                    placeholder="e.g., Customer explicitly mentions unauthorized credit card debit.",
+                curr_prio = result["priority"]
+                prio_idx = APPROVED_PRIORITIES.index(curr_prio) if curr_prio in APPROVED_PRIORITIES else 0
+                corrected_prio = st.selectbox(
+                    "Correct Priority:",
+                    options=APPROVED_PRIORITIES,
+                    index=prio_idx,
                 )
+            with c_col3:
+                reviewer_id = st.text_input("Reviewer ID / Agent Name:", value="support_agent")
+
+            notes = st.text_input(
+                "Reviewer Notes / Justification:",
+                placeholder="e.g., Enterprise outage requires High priority escalation and duplicate billing review.",
+            )
             submit_correction = st.form_submit_button("Submit Correction", type="secondary")
 
             if submit_correction:
@@ -240,11 +264,14 @@ def render_single_ticket_tab(engine: InferenceEngine):
                     corrected_category=corrected_cat,
                     corrected_by=reviewer_id,
                     review_notes=notes,
+                    predicted_priority=result["priority"],
+                    predicted_priority_confidence=result.get("priority_confidence"),
+                    corrected_priority=corrected_prio,
                 )
                 if success:
                     st.success(
                         f"Correction successfully logged! "
-                        f"Saved override '{corrected_cat}' to `{RUNTIME_CORRECTIONS_PATH.name}`."
+                        f"Saved overrides (Category: '{corrected_cat}', Priority: '{corrected_prio}') to `{RUNTIME_CORRECTIONS_PATH.name}`."
                     )
 
 
@@ -289,25 +316,33 @@ def render_batch_tab(engine: InferenceEngine):
 
                 # Flagged / rejected rows expander if any invalid rows existed
                 if stats.get("rejected_count", 0) > 0:
-                    with st.expander(f"⚠️ {stats['rejected_count']} Invalid Rows Were Flagged and Excluded", expanded=True):
+                    with st.expander(f"{stats['rejected_count']} Invalid Rows Were Flagged and Excluded", expanded=True):
                         st.warning("The following rows contained missing text, stringified nulls, or were below the minimum 5 characters:")
                         st.dataframe(stats["rejected_df"], use_container_width=True)
                         rej_csv = stats["rejected_df"].to_csv(index=False).encode("utf-8")
                         st.download_button(
-                            label="📥 Download Rejected Rows Log (CSV)",
+                            label="Download Rejected Rows Log (CSV)",
                             data=rej_csv,
                             file_name="ticketsense_rejected_rows.csv",
                             mime="text/csv",
                         )
 
                 # Batch summary KPIs
-                kpi1, kpi2, kpi3 = st.columns(3)
+                kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
                 kpi1.metric("Total Processed", stats["total_processed"])
                 kpi2.metric(
-                    "Flagged for Human Review",
+                    "Category Review",
+                    f"{stats.get('category_review_count', 0)}",
+                )
+                kpi3.metric(
+                    "Priority Review",
+                    f"{stats.get('priority_review_count', 0)}",
+                )
+                kpi4.metric(
+                    "Overall Flagged",
                     f"{stats['uncertain_count']} ({stats['uncertain_percentage']}%)",
                 )
-                kpi3.metric("Autonomous Acceptance", f"{100 - stats['uncertain_percentage']:.1f}%")
+                kpi5.metric("Fully Autonomous", f"{100 - stats['uncertain_percentage']:.1f}%")
 
                 st.markdown("#### Category Distribution")
                 cat_df = pd.DataFrame(
@@ -320,17 +355,29 @@ def render_batch_tab(engine: InferenceEngine):
                 st.markdown("#### Enriched Results Table")
                 filter_choice = st.radio(
                     "Filter Results:",
-                    options=["Show All", "Flagged for Human Review Only", "Autonomous Only"],
+                    options=[
+                        "Show All",
+                        "Flagged for Human Review (Overall)",
+                        "Category Review Required",
+                        "Priority Review Required",
+                        "Autonomous Only",
+                    ],
                     horizontal=True,
                 )
 
                 display_df = enriched_df.copy()
-                if filter_choice == "Flagged for Human Review Only":
-                    display_df = display_df[display_df["is_uncertain"] == True]
+                if filter_choice == "Flagged for Human Review (Overall)":
+                    display_df = display_df[display_df.get("overall_review_required", display_df["is_uncertain"]) == True]
+                elif filter_choice == "Category Review Required":
+                    display_df = display_df[display_df.get("category_review_required", display_df["is_uncertain"]) == True]
+                elif filter_choice == "Priority Review Required":
+                    display_df = display_df[display_df.get("priority_review_required", False) == True]
                 elif filter_choice == "Autonomous Only":
-                    display_df = display_df[display_df["is_uncertain"] == False]
+                    display_df = display_df[display_df.get("overall_review_required", display_df["is_uncertain"]) == False]
 
-                st.caption("You can directly click and edit the 'predicted_category' column below for any ticket flagged for human review.")
+                st.caption(
+                    "You can directly edit the 'predicted_category' and 'predicted_priority' columns below for any ticket flagged for human review."
+                )
 
                 column_config = {
                     "ticket_text": st.column_config.TextColumn("ticket_text", disabled=True),
@@ -342,32 +389,65 @@ def render_batch_tab(engine: InferenceEngine):
                         required=True,
                     ),
                     "confidence": st.column_config.NumberColumn("confidence", format="%.4f", disabled=True),
-                    "is_uncertain": st.column_config.CheckboxColumn("is_uncertain", disabled=True),
+                    "predicted_priority": st.column_config.SelectboxColumn(
+                        "predicted_priority",
+                        help="Select corrected priority",
+                        options=APPROVED_PRIORITIES,
+                        required=True,
+                    ),
+                    "priority_confidence": st.column_config.NumberColumn("priority_confidence", format="%.4f", disabled=True),
+                    "category_review_required": st.column_config.CheckboxColumn("category_review_required", disabled=True),
+                    "priority_review_required": st.column_config.CheckboxColumn("priority_review_required", disabled=True),
+                    "overall_review_required": st.column_config.CheckboxColumn("overall_review_required", disabled=True),
                     "uncertainty_reason": st.column_config.TextColumn("uncertainty_reason", disabled=True),
+                    "priority_uncertainty_reason": st.column_config.TextColumn("priority_uncertainty_reason", disabled=True),
                 }
+
+                disabled_cols = [
+                    c for c in display_df.columns
+                    if c not in ["predicted_category", "predicted_priority"]
+                ]
 
                 edited_display_df = st.data_editor(
                     display_df,
                     column_config=column_config,
-                    disabled=["ticket_text", "original_row_number", "confidence", "is_uncertain", "uncertainty_reason"],
+                    disabled=disabled_cols,
                     use_container_width=True,
                     key=f"batch_editor_{filter_choice}",
                 )
 
-                # Check for human edits and offer Save button
-                if not edited_display_df["predicted_category"].equals(display_df["predicted_category"]):
-                    changed_mask = edited_display_df["predicted_category"] != display_df["predicted_category"]
-                    changed_rows = edited_display_df[changed_mask]
-                    st.info(f"You have edited {len(changed_rows)} ticket category prediction(s).")
+                # Check for human edits in category or priority
+                cat_changed = not edited_display_df["predicted_category"].equals(display_df["predicted_category"])
+                prio_changed = (
+                    "predicted_priority" in edited_display_df.columns
+                    and not edited_display_df["predicted_priority"].equals(display_df["predicted_priority"])
+                )
+
+                if cat_changed or prio_changed:
+                    changed_indices = []
+                    for idx in display_df.index:
+                        if edited_display_df.loc[idx, "predicted_category"] != display_df.loc[idx, "predicted_category"]:
+                            changed_indices.append(idx)
+                        elif prio_changed and (edited_display_df.loc[idx, "predicted_priority"] != display_df.loc[idx, "predicted_priority"]):
+                            changed_indices.append(idx)
+                    changed_indices = list(set(changed_indices))
+
+                    st.info(f"You have modified {len(changed_indices)} ticket prediction(s).")
                     if st.button("Save Human Review Corrections", type="primary", key="save_human_review_btn"):
-                        for idx, row in changed_rows.iterrows():
+                        for idx in changed_indices:
+                            row = edited_display_df.loc[idx]
                             orig_cat = display_df.loc[idx, "predicted_category"]
                             new_cat = row["predicted_category"]
+                            orig_prio = display_df.loc[idx, "predicted_priority"] if "predicted_priority" in display_df.columns else None
+                            new_prio = row["predicted_priority"] if "predicted_priority" in row else None
                             ticket_msg = row.get("ticket_text", "")
 
                             # Update session state master dataframe
                             st.session_state.batch_enriched_df.loc[idx, "predicted_category"] = new_cat
+                            if new_prio:
+                                st.session_state.batch_enriched_df.loc[idx, "predicted_priority"] = new_prio
                             st.session_state.batch_enriched_df.loc[idx, "is_uncertain"] = False
+                            st.session_state.batch_enriched_df.loc[idx, "overall_review_required"] = False
                             st.session_state.batch_enriched_df.loc[idx, "uncertainty_reason"] = "Human Reviewed & Corrected"
 
                             # Persist audit record
@@ -377,8 +457,11 @@ def render_batch_tab(engine: InferenceEngine):
                                 predicted_confidence=float(row.get("confidence", 0.0)),
                                 corrected_category=new_cat,
                                 review_notes=f"Batch UI override for row {row.get('original_row_number', idx)}",
+                                predicted_priority=orig_prio,
+                                predicted_priority_confidence=float(row.get("priority_confidence", 0.0)) if row.get("priority_confidence") is not None else None,
+                                corrected_priority=new_prio,
                             )
-                        st.success(f"Successfully saved {len(changed_rows)} human review correction(s) to the audit log!")
+                        st.success(f"Successfully saved {len(changed_indices)} human review correction(s) to the audit log!")
                         st.rerun()
 
                 # Export CSV
@@ -451,12 +534,14 @@ def render_performance_tab():
 
     # Governance Notice
     st.markdown("---")
-    st.markdown("### Governance & Gate G1 Requirements")
+    st.markdown("### Governance & Priority Model Policy")
     st.markdown(
         """
-        - **Labeling Policy Review:** The priority classification task is subject to an active review queue (`data/processed/dataset_review_required.csv`).
-        - **Class Imbalance:** High-priority records constitute only 6.5% of historical labels, presenting severe risk of false negatives on critical security issues.
-        - **Supervisor Sign-off:** Supervised training of the priority classifier remains strictly paused pending final policy determination and sign-off by Technical Supervisor Abdullah Ramzan.
+        - **Priority ML Model:** Two-Stage Rubric-Based Classifier trained on development split (`models/priority_model.joblib`).
+        - **Architecture:** Stage 1 predicts Impact (I1, I2, I3), Stage 2 predicts Urgency (U1, U2, U3), and Stage 3 maps components deterministically through the authoritative 3x3 Rubric matrix.
+        - **Labeling Rubric:** Priority labels are rubric-derived (3x3 Impact x Urgency matrix), not operational ground truth.
+        - **Class Imbalance Mitigation:** Inverse class weighting (`class_weight='balanced'`) prevents majority class collapse on minority High urgency.
+        - **Review Queue:** The 26 candidate review queue records (`data/processed/dataset_review_required.csv`) remain segregated pending supervisor adjudication.
         """
     )
 
@@ -484,7 +569,7 @@ def render_corrections_tab():
 
         csv_data = corrections_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Corrections Log (CSV)",
+            label="Download Corrections Log (CSV)",
             data=csv_data,
             file_name="runtime_corrections.csv",
             mime="text/csv",
@@ -496,10 +581,10 @@ def main():
     engine = get_engine()
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🎯 Single Ticket",
-        "📂 Batch Processing",
-        "📈 Performance & Governance",
-        "📝 Corrections Log",
+        "Single Ticket",
+        "Batch Processing",
+        "Performance & Governance",
+        "Corrections Log",
     ])
 
     with tab1:

@@ -1,0 +1,99 @@
+{
+  "model_name": "FE-3 Lexical Augmented Two-Stage Priority Classifier",
+  "timestamp_utc": "2026-11-25T05:03:37.867799+00:00",
+  "architecture": "Stage 1: Impact TF-IDF + Lexical Domain Indicators + Balanced LR -> Stage 2: Urgency TF-IDF + Lexical Domain Indicators + Balanced LR -> Stage 3: Authoritative Rubric",
+  "use_lexical_features": true,
+  "train_samples": 400,
+  "val_samples": 100,
+  "classes": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "hyperparameters": {
+    "impact_classifier": {
+      "c_imp": 2.0,
+      "ngram_range": [
+        1,
+        2
+      ],
+      "class_weight": "balanced"
+    },
+    "urgency_classifier": {
+      "c_urg": 1.0,
+      "ngram_range": [
+        1,
+        2
+      ],
+      "class_weight": "balanced"
+    }
+  },
+  "validation_metrics": {
+    "priority_accuracy": 0.89,
+    "priority_macro_precision": 0.709563994374121,
+    "priority_macro_recall": 0.7970383275261325,
+    "priority_macro_f1": 0.7445848504319269,
+    "priority_weighted_f1": 0.8947132148211608,
+    "impact_accuracy": 0.9,
+    "urgency_accuracy": 0.9,
+    "cost_weighted_error": 0.26,
+    "high_false_lows": 0,
+    "medium_false_lows": 3,
+    "total_false_lows": 3
+  },
+  "uncertainty_routing_policy": {
+    "priority_confidence_threshold": 0.6,
+    "priority_margin_threshold": 0.15,
+    "component_threshold": 0.5,
+    "high_risk_threshold": 0.15,
+    "critical_incident_guardrail": true,
+    "validation_human_review_rate": 0.35,
+    "validation_autonomous_coverage": 0.65,
+    "validation_autonomous_accuracy": 0.9385,
+    "validation_false_low_flagged_rate": 0.6667,
+    "validation_high_recall_with_review": 1.0
+  },
+  "per_class_validation": {
+    "High": {
+      "precision": 0.5,
+      "recall": 0.75,
+      "f1-score": 0.6,
+      "support": 4.0
+    },
+    "Medium": {
+      "precision": 0.6666666666666666,
+      "recall": 0.7142857142857143,
+      "f1-score": 0.6896551724137931,
+      "support": 14.0
+    },
+    "Low": {
+      "precision": 0.9620253164556962,
+      "recall": 0.926829268292683,
+      "f1-score": 0.9440993788819876,
+      "support": 82.0
+    }
+  },
+  "confusion_matrix_labels": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "confusion_matrix": [
+    [
+      3,
+      1,
+      0
+    ],
+    [
+      1,
+      10,
+      3
+    ],
+    [
+      2,
+      4,
+      76
+    ]
+  ],
+  "disclaimer": "Priority labels are rubric-derived (Impact x Urgency matrix), not historical operational ground truth."
+}

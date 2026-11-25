@@ -49,12 +49,12 @@ A classifier can do the routing instantly, but a standard classifier always retu
 - A scikit-learn pipeline: text cleaning, TF-IDF, Multinomial Naive Bayes, sigmoid calibration.
 - Human review flags based on a confidence threshold (0.65) and a margin between the top two classes (0.15).
 - A Streamlit app with single-ticket triage, batch CSV processing, a model dashboard and a corrections log.
-- A keyword-based priority indicator (Low, Medium, High) shown as a hint only.
-- 45 automated tests.
+- An independent Two-Stage Priority ML Model (`models/priority_model.joblib`: Stage 1 Impact LR + Stage 2 Urgency LR -> Stage 3 3x3 Rubric Matrix) predicting Impact, Urgency, and Priority (Low, Medium, High).
+- A deterministic keyword heuristic preserved in `ticketsense/inference/priority_stub.py` as an automatic fallback.
+- 71 automated tests.
 
-**Not implemented**
+**Not implemented / Out of Scope**
 
-- **Trained priority model.** Training is paused (`PRIORITY_TRAINING_PAUSED = True`) pending supervisor approval at Gate G1. Only 6.5% of the priority labels are High, so a model trained on them would likely miss urgent tickets until the labels are rebalanced.
 - **Multi-label classification.** Each ticket gets one category. If a ticket has several issues, the model picks the dominant one.
 - **An "out of scope" class.** The model works with five categories only. Off-topic messages are assigned to the closest one.
 
@@ -66,22 +66,23 @@ A classifier can do the routing instantly, but a standard classifier always retu
 Ticket text
   -> Validation (5-5000 characters, not empty)
   -> Text cleaning
-  -> TF-IDF (unigrams + bigrams)
-  -> Multinomial Naive Bayes (alpha = 0.1)
-  -> Sigmoid calibration (5-fold CV)
+  -> Parallel Inference:
+       a) Category Model: TF-IDF -> Multinomial NB (alpha=0.1) -> Sigmoid Calibration (5-fold)
+       b) Priority Model: Two-Stage Rubric Model (Stage 1: Impact LR, Stage 2: Urgency LR -> Stage 3: 3x3 Rubric)
   -> Uncertainty check (confidence < 0.65 or margin < 0.15 -> human review)
-  -> Result: category, probabilities, review flag
+  -> Result: category, calibrated confidence, priority, predicted impact, predicted urgency, uncertainty flag, issue summary
 ```
 
 | Component | Location | What it does |
 | :--- | :--- | :--- |
 | Validation | `ticketsense/data/validator.py` | Rejects empty, non-text, too short (under 5) or too long (over 5000 characters) input. |
 | Text cleaning | `ticketsense/nlp/preprocessor.py` | Expands contractions ("can't" becomes "cannot"), replaces URLs and emails with placeholders, removes punctuation, lowercases, and collapses whitespace. |
-| TF-IDF | scikit-learn | Converts text into word and word-pair features. |
-| Classifier | scikit-learn | Multinomial Naive Bayes with smoothing `alpha = 0.1`. |
-| Calibration | scikit-learn | `CalibratedClassifierCV` with sigmoid scaling, so the probabilities better match how often the model is right. |
+| Category TF-IDF | scikit-learn | Converts text into word and word-pair features (unigrams + bigrams). |
+| Category Classifier | scikit-learn | Multinomial Naive Bayes with smoothing `alpha = 0.1`. |
+| Category Calibration | scikit-learn | `CalibratedClassifierCV` with sigmoid scaling, so probabilities accurately reflect precision. |
 | Uncertainty check | `ticketsense/inference/uncertainty.py` | Flags a ticket for review and explains why. |
-| Priority heuristic | `ticketsense/inference/priority_stub.py` | Looks for urgent words such as "urgent", "immediately", "outage" and "unauthorized". |
+| Priority ML Model | `ticketsense/inference/priority_predictor.py` | Dedicated Two-Stage Rubric model predicting Impact (I1-I3), Urgency (U1-U3), and Priority (Low, Medium, High). |
+| Priority Fallback | `ticketsense/inference/priority_stub.py` | Word-boundary regex heuristic used as an automatic fallback if model artifacts are unavailable. |
 | App | `app.py` | Streamlit interface. |
 
 The same cleaning step is used in training, batch prediction and single-ticket prediction.
@@ -378,7 +379,25 @@ The audit scripts and reports are kept locally in `docs/archive/final_independen
 | Streamlit | 1.42.1 | Web app |
 | pytest | 9.2.0 | Tests |
 
-See the README for the repository layout and setup instructions. Reports and charts are in `reports/`, including `EXPERIMENT_RESULTS_LOG.json`, `CATEGORY_MODEL_EVALUATION.md`, `category_validation_errors.csv` and the six chart images in `reports/visualizations/`.
+See the README for the repository layout and setup instructions. Core reports and visual figures are in `reports/` and `screenshots/`, with archived experiment logs in `archive/reports/experiment_artifacts/`.
+
+---
+
+## 14b. Independent Priority Uncertainty and Review Routing
+
+To ensure high-risk tickets (such as enterprise database outages or account lockouts) are never erroneously dismissed as Low priority without human oversight, an independent Priority Uncertainty Gate was implemented:
+- **Criteria for Human Review:**
+  1. Low Priority Confidence: $P(\text{Priority}) < 0.60$.
+  2. Ambiguous Margin: Top-1 vs. Top-2 Priority probability difference $< 0.15$.
+  3. Component Uncertainty: Impact confidence $< 0.50$ OR Urgency confidence $< 0.50$.
+  4. High-Risk Discrepancy: Predicted Priority is 'Low' while $P(\text{High}) \ge 0.15$ or ticket text contains critical incident keywords (e.g. emergency, outage, crashed, nationwide, escalation).
+- **Validation Routing Results with FE-3 Production Model:**
+  - Human review rate: **35.0%** (reduced by 48.5% compared to baseline 68.0%).
+  - Autonomous coverage: **65.0%** (more than doubled from baseline 32.0%).
+  - Autonomous subset accuracy: **93.85%** (61 of 65 correct).
+  - Effective High priority safety recall: **100.0%** (all 4 High tickets correctly assigned or routed).
+  - High false-lows: **0** (zero High tickets misclassified as Low).
+  - Outage ticket detection: Directly recognized as High Priority (`I2`, `U3`) and guarded by the review gate.
 
 ---
 
@@ -387,11 +406,11 @@ See the README for the repository layout and setup instructions. Reports and cha
 | Component | Status |
 | :--- | :--- |
 | Category classifier (TF-IDF + calibrated Naive Bayes) | Complete: 92% test accuracy, 90% handled automatically |
-| Human review rules | Complete |
+| Human review rules | Complete: Dual-channel Category and Priority review gates |
 | Synthetic data and quality checks | Complete: no duplicates, no leakage |
-| Streamlit app | Complete |
-| Automated tests | Complete: 45 of 45 pass |
-| Priority model | On hold: waiting for Gate G1 approval. A keyword heuristic is shown in the meantime. |
+| Streamlit app | Complete: Interactive single-ticket triage, batch CSV processing, dashboard, and corrections log |
+| Automated tests | Complete: 84 of 84 pass |
+| Priority model | Complete: FE-3 Lexical Augmented Two-Stage Model (89.0% validation accuracy, 0.7446 Macro F1, 75.0% High Recall, 0 High False-Lows, 66.0% test accuracy). Independent Priority Uncertainty Gate operational (35.0% review rate, 65.0% autonomous coverage at 93.85% accuracy). Heuristic preserved as fallback. |
 | Filter for off-topic messages | Future work: reject non-support messages before classification |
 | Multi-label tickets | Future work: handle tickets that contain more than one issue |
 

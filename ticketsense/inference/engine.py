@@ -11,12 +11,20 @@ from ticketsense.config import (
     APPROVED_CATEGORIES,
     DEFAULT_UNCERTAINTY_THRESHOLD,
     DEFAULT_UNCERTAINTY_MARGIN,
+    DEFAULT_PRIORITY_UNCERTAINTY_THRESHOLD,
+    DEFAULT_PRIORITY_UNCERTAINTY_MARGIN,
+    DEFAULT_PRIORITY_COMPONENT_THRESHOLD,
+    DEFAULT_PRIORITY_HIGH_RISK_THRESHOLD,
 )
 from ticketsense.models.persistence import load_model_bundle
 from ticketsense.nlp.preprocessor import clean_text
 from ticketsense.data.validator import validate_ticket_text, validate_batch_dataframe
-from ticketsense.inference.uncertainty import compute_uncertainty_score
+from ticketsense.inference.uncertainty import (
+    compute_uncertainty_score,
+    compute_priority_uncertainty_score,
+)
 from ticketsense.inference.priority_stub import assess_priority
+from ticketsense.inference.priority_predictor import PriorityPredictor
 
 
 def extract_ticket_summary(text: str, max_chars: int = 120) -> str:
@@ -50,6 +58,10 @@ class InferenceEngine:
         metadata_path: Path = CATEGORY_METADATA_PATH,
         uncertainty_threshold: float = DEFAULT_UNCERTAINTY_THRESHOLD,
         uncertainty_margin: float = DEFAULT_UNCERTAINTY_MARGIN,
+        priority_threshold: float = DEFAULT_PRIORITY_UNCERTAINTY_THRESHOLD,
+        priority_margin: float = DEFAULT_PRIORITY_UNCERTAINTY_MARGIN,
+        priority_component_threshold: float = DEFAULT_PRIORITY_COMPONENT_THRESHOLD,
+        priority_high_risk_threshold: float = DEFAULT_PRIORITY_HIGH_RISK_THRESHOLD,
     ):
         self.model_path = model_path
         self.metadata_path = metadata_path
@@ -58,6 +70,12 @@ class InferenceEngine:
         self.pipeline = None
         self.metadata = None
         self.classes = APPROVED_CATEGORIES
+        self.priority_predictor = PriorityPredictor(
+            uncertainty_threshold=priority_threshold,
+            uncertainty_margin=priority_margin,
+            component_threshold=priority_component_threshold,
+            high_risk_threshold=priority_high_risk_threshold,
+        )
         self._load_pipeline()
 
     def _load_pipeline(self) -> None:
@@ -108,8 +126,12 @@ class InferenceEngine:
             margin=self.uncertainty_margin,
         )
 
-        priority_info = assess_priority(text)
+        priority_info = self.priority_predictor.predict(text)
         summary = extract_ticket_summary(text)
+
+        cat_review = uncertainty_diag["is_uncertain"]
+        prio_review = priority_info.get("priority_review_required", False)
+        overall_review = cat_review or prio_review
 
         return {
             "success": True,
@@ -118,14 +140,26 @@ class InferenceEngine:
             "predicted_category": uncertainty_diag["top_category"],
             "confidence": uncertainty_diag["confidence"],
             "all_probabilities": class_probas,
-            "is_uncertain": uncertainty_diag["is_uncertain"],
+            "is_uncertain": cat_review,
+            "category_review_required": cat_review,
             "uncertainty_reason": uncertainty_diag["reason"],
             "second_category": uncertainty_diag["second_category"],
             "margin": uncertainty_diag["margin"],
             "summary": summary,
-            "priority": priority_info["heuristic_priority"],
+            "priority": priority_info["priority"],
+            "priority_confidence": priority_info.get("priority_confidence"),
+            "priority_probabilities": priority_info.get("priority_probabilities", {}),
+            "priority_margin": priority_info.get("priority_margin"),
+            "priority_review_required": prio_review,
+            "priority_uncertainty_reason": priority_info.get("priority_uncertainty_reason", ""),
+            "overall_review_required": overall_review,
+            "predicted_impact": priority_info.get("predicted_impact"),
+            "impact_confidence": priority_info.get("impact_confidence"),
+            "predicted_urgency": priority_info.get("predicted_urgency"),
+            "urgency_confidence": priority_info.get("urgency_confidence"),
             "priority_status": priority_info["priority_status"],
             "priority_policy_message": priority_info["policy_message"],
+            "provisional_priority_heuristic": priority_info.get("heuristic_fallback"),
         }
 
     def predict_batch(
@@ -152,12 +186,12 @@ class InferenceEngine:
         if not self.is_ready():
             return False, "Model is not loaded.", pd.DataFrame(), {}
 
-        cleaned_texts = [clean_text(t) for t in valid_df["ticket_text"]]
-        # Pipeline accepts raw text list directly via TextCleaner
         all_probas = self.pipeline.predict_proba(valid_df["ticket_text"].tolist())
 
         results = []
-        uncertain_count = 0
+        overall_uncertain_count = 0
+        cat_review_count = 0
+        prio_review_count = 0
 
         for idx, (orig_text, probas) in enumerate(zip(valid_df["ticket_text"], all_probas)):
             u_diag = compute_uncertainty_score(
@@ -166,18 +200,35 @@ class InferenceEngine:
                 threshold=self.uncertainty_threshold,
                 margin=self.uncertainty_margin,
             )
-            p_info = assess_priority(orig_text)
+            p_info = self.priority_predictor.predict(orig_text)
             summary = extract_ticket_summary(orig_text)
 
-            if u_diag["is_uncertain"]:
-                uncertain_count += 1
+            cat_rev = u_diag["is_uncertain"]
+            prio_rev = p_info.get("priority_review_required", False)
+            overall_rev = cat_rev or prio_rev
+
+            if cat_rev:
+                cat_review_count += 1
+            if prio_rev:
+                prio_review_count += 1
+            if overall_rev:
+                overall_uncertain_count += 1
 
             results.append({
                 "predicted_category": u_diag["top_category"],
                 "confidence": u_diag["confidence"],
-                "is_uncertain": u_diag["is_uncertain"],
+                "is_uncertain": cat_rev,
+                "category_review_required": cat_rev,
                 "uncertainty_reason": u_diag["reason"],
-                "provisional_priority_heuristic": p_info["heuristic_priority"],
+                "predicted_impact": p_info.get("predicted_impact"),
+                "predicted_urgency": p_info.get("predicted_urgency"),
+                "predicted_priority": p_info["priority"],
+                "priority_confidence": p_info.get("priority_confidence"),
+                "priority_margin": p_info.get("priority_margin"),
+                "priority_review_required": prio_rev,
+                "priority_uncertainty_reason": p_info.get("priority_uncertainty_reason", ""),
+                "overall_review_required": overall_rev,
+                "provisional_priority_heuristic": p_info.get("heuristic_fallback"),
                 "priority_status": p_info["priority_status"],
                 "issue_summary": summary,
             })
@@ -186,15 +237,21 @@ class InferenceEngine:
         enriched_df = pd.concat([valid_df.reset_index(drop=True), results_df], axis=1)
 
         category_counts = enriched_df["predicted_category"].value_counts().to_dict()
+        priority_counts = enriched_df["predicted_priority"].value_counts().to_dict()
 
         stats = {
             "total_uploaded": len(df),
             "total_processed": len(enriched_df),
             "rejected_count": len(rejected_df),
             "rejected_df": rejected_df,
-            "uncertain_count": uncertain_count,
-            "uncertain_percentage": round(uncertain_count / len(enriched_df) * 100, 1) if len(enriched_df) > 0 else 0.0,
+            "uncertain_count": overall_uncertain_count,
+            "uncertain_percentage": round(overall_uncertain_count / len(enriched_df) * 100, 1) if len(enriched_df) > 0 else 0.0,
+            "category_review_count": cat_review_count,
+            "priority_review_count": prio_review_count,
+            "overall_review_count": overall_uncertain_count,
+            "autonomous_acceptance_count": len(enriched_df) - overall_uncertain_count,
             "category_distribution": category_counts,
+            "priority_distribution": priority_counts,
         }
 
         return True, f"Processed {len(enriched_df)} tickets successfully.", enriched_df, stats

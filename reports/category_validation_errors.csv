@@ -1,8 +1,0 @@
-ticket_text,true_category,predicted_category,confidence
-I received my refund but my bank sent it back as undeliverable. Now it's stuck and I need help getting it reissued to a valid account.,Billing,Delivery,0.4536
-Your statements are confusing and don't clearly break down what each amount is for.,Billing,Technical Issue,0.3343
-"I upload a new profile photo, the progress bar completes and says done, but the old photo is still showing. The change never saves. I have tried from both mobile and desktop.",Technical Issue,Account Access,0.745
-Since I connected my Google Calendar every single event is appearing three times in the app. This has made the calendar useless and it is affecting my scheduling. I need this fixed before my next billing cycle.,Technical Issue,Account Access,0.5315
-I have notifications enabled but they're not showing up on my desktop. Nothing appears even when configured to do so.,Technical Issue,Account Access,0.5562
-Multiple concurrent logins cause session conflicts.,Account Access,Technical Issue,0.5949
-My account has been inaccessible for over a week. I am still being charged during this time. I want access restored and credit for the days I couldn't use what I paid for.,Account Access,Billing,0.5405

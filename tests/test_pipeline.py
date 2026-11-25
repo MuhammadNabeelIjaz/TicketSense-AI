@@ -19,7 +19,8 @@ def test_predict_ticket_structure(inference_engine):
     assert len(result["all_probabilities"]) == len(APPROVED_CATEGORIES)
     assert isinstance(result["is_uncertain"], bool)
     assert "priority" in result
-    assert result["priority_status"] == "PAUSED_PENDING_GATE_G1"
+    assert result["priority_status"] in ["ACTIVE_ML_MODEL", "PAUSED_PENDING_GATE_G1"]
+    assert "priority_confidence" in result
 
 
 def test_predict_ticket_probabilities_sum(inference_engine):

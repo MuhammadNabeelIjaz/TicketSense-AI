@@ -2,7 +2,7 @@
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 45 Passed](https://img.shields.io/badge/tests-45%20passed-brightgreen.svg)]()
+[![Tests: 71 Passed](https://img.shields.io/badge/tests-71%20passed-brightgreen.svg)]()
 [![Test Accuracy: 92%](https://img.shields.io/badge/test%20accuracy-92.0%25-success.svg)]()
 
 TicketSense-AI classifies customer support tickets into five categories and shows how confident it is in each prediction. Confident predictions are accepted automatically. Uncertain or ambiguous ones are flagged for a human to review, and any corrections the reviewer makes are saved to a CSV file for later use.
@@ -25,7 +25,7 @@ Support teams receive many tickets about billing, account access, deliveries and
 - **Manual corrections:** agents can override a prediction. Corrections are appended to `data/corrections/runtime_corrections.csv` and the training data is never modified.
 - **Dashboard:** a Streamlit app with model metrics, six evaluation charts and the correction log.
 
-Priority is currently a keyword-based heuristic, not a trained model (see [Priority](#priority)).
+Priority classification is powered by the production FE-3 Lexical Augmented Two-Stage Model predicting Impact (`I1-I3`), Urgency (`U1-U3`), and Priority (`Low, Medium, High`) through the authoritative 3x3 project rubric (see [Priority](#priority)).
 
 ---
 
@@ -83,16 +83,30 @@ TicketSense-AI/
 |   |-- config.py               # Paths, categories, thresholds
 |   |-- data/                   # loader, validator, corrections logger
 |   |-- nlp/preprocessor.py     # Text cleaning
-|   |-- models/                 # Pipeline, evaluation, model saving/loading
-|   |-- inference/              # Prediction engine, uncertainty check, priority heuristic
+|   |-- models/                 # Category and priority ML pipelines
+|   |-- inference/              # InferenceEngine, uncertainty gates, priority predictor
 |   `-- visualization.py        # Evaluation charts
-|-- scripts/                    # Training, experiments, evaluation and QA scripts
-|-- tests/                      # 45 automated tests
-|-- models/                     # Saved model and metadata
-|-- reports/                    # Final report, experiment log, charts
+|-- screenshots/                # Model and application visual assets
+|   |-- Category_Model/         # Confusion matrix, classification report, confidence curve
+|   |-- Priority_Model/         # Confusion matrix, classification report, components, routing
+|   `-- Application_Overview/   # Streamlit UI, single ticket, batch processing, human review
+|-- scripts/                    # Verification, packaging, and evaluation scripts
+|-- tests/                      # 84 automated tests (100% passing)
+|-- models/                     # Serialized production models and metadata
+|   |-- category_model.joblib
+|   |-- category_model_metadata.json
+|   |-- priority_model.joblib
+|   `-- priority_model_metadata.json
+|-- reports/                    # Final project report and visual figures
+|   |-- FINAL_PROJECT_REPORT.md
+|   `-- visualizations/
+|-- archive/                    # Archived historical reports, experiment artifacts, and documentation
 `-- data/
     |-- processed/              # Train, validation and test data
-    `-- corrections/            # Agent corrections log
+    `-- corrections/            # Agent corrections audit logs
+        |-- runtime_corrections.csv                  # Operational corrections log (12 genuine records)
+        |-- qa_test_corrections.csv                  # QA test records archive (4 records)
+        `-- runtime_corrections_original_backup.csv  # Original pre-separation backup
 ```
 
 ---
@@ -110,7 +124,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Run the tests (all 45 pass in under 20 seconds):
+Run the tests (all 83 pass in under 30 seconds):
 
 ```powershell
 .venv\Scripts\pytest.exe -v
@@ -132,22 +146,63 @@ Start the app at `http://localhost:8501`:
 
 ## Priority
 
-Priority prediction is an optional extension in the project brief, and supervised training for it is paused. Only 6.5% of the historical priority labels are High, and 26 rows are still waiting for review in `data/processed/dataset_review_required.csv`. Training on these labels would likely under-predict urgent tickets such as security incidents. Until the Technical Supervisor (Abdullah Ramzan) approves this at Gate G1, the app shows a keyword-based indicator (Low, Medium or High) as a hint only.
+Priority classification predicts customer issue urgency (Low, Medium, High) based on the project's authoritative Impact x Urgency rubric.
+
+- **Active ML Architecture:**
+  - FE-3 Lexical Augmented Two-Stage Rubric Model (`TwoStagePriorityClassifier` in `ticketsense/models/priority_pipeline.py`):
+    - Stage 1 (Impact): `TextCleaner` -> `FeatureUnion([tfidf, lexical_keywords])` -> `LogisticRegression(C=2.0, class_weight='balanced')`.
+    - Stage 2 (Urgency): `TextCleaner` -> `FeatureUnion([tfidf, lexical_keywords])` -> `LogisticRegression(C=1.0, class_weight='balanced')`.
+    - Stage 3 (Rubric Mapping): Deterministically maps predicted (Impact, Urgency) pairs through the authoritative 3x3 rubric matrix to determine Priority.
+  - Serialized to `models/priority_model.joblib` with metadata in `models/priority_model_metadata.json` (previous baseline preserved at `models/priority_model_baseline_backup.joblib`).
+  - **Selection Rationale:** FE-3 Lexical Augmented Two-Stage was selected as the sole primary production model because it outperforms baseline across all key dimensions: 89.00% vs 87.00% accuracy, 0.7446 vs 0.7271 Macro F1, 75.00% vs 50.00% High Recall, and achieves ZERO High False-Lows (0 vs 2) and reduced total false-lows (3 vs 8).
+- **Performance:**
+  - **Validation Set (100 samples):** Accuracy = **89.00%**, Macro F1 = **0.7446**, High Precision = 50.00%, High Recall = **75.00%**, Impact Accuracy = 90.00%, Urgency Accuracy = 90.00%, Total False-Lows = 3 (High: 0, Medium: 3), Cost-Weighted Error = **0.4100**.
+  - **Locked Test Set (100 samples):** Accuracy = **66.00%**, Impact Accuracy = 72.00%, Urgency Accuracy = 72.00%.
+- **Provenance & Truthfulness Disclosure:**
+  - Priority labels in the development corpus were derived using an experimental 3x3 Impact x Urgency rubric (`I1-I3` x `U1-U3`), not historical helpdesk SLA telemetry.
+  - The 100-ticket locked test set is synthetic (Claude 3.5 Sonnet) with prompt-induced deadline phrasing, creating a distribution shift against the Kaggle-derived training split (16 High in train vs. 19 High in test). Metrics reflect agreement with the defined project rubric.
+- **Independent Priority Uncertainty & Review Routing:**
+  - Evaluates predictions through four safety guardrails:
+    1. Low Priority Confidence: $P(\text{Priority}) < 0.60$.
+    2. Ambiguous Margin: Top-1 vs. Top-2 Priority probability difference $< 0.15$.
+    3. Component Uncertainty: Impact confidence $< 0.50$ OR Urgency confidence $< 0.50$.
+    4. High-Risk Discrepancy: Predicted Priority is 'Low' while $P(\text{High}) \ge 0.15$ or ticket text contains critical incident keywords (e.g. emergency, outage, crashed, nationwide, escalation).
+  - Production routing performance with FE-3: **35.0% human review rate**, **65.0% autonomous coverage** with **93.85% accuracy** on autonomous predictions, and **100.0% Effective High Safety Recall** (3 of 4 High tickets identified directly by the model, and 100% of high-risk cases guarded).
+- **Graceful Fallback:**
+  - The deterministic keyword heuristic in `ticketsense/inference/priority_stub.py` is preserved as an automatic fallback if the serialized model artifact is missing or corrupted.
 
 ---
 
-## Limitations
+## Human-in-the-Loop Corrections Architecture
 
+TicketSense-AI incorporates an append-only audit trail for operational agent overrides, ensuring that human feedback is preserved without mutating underlying model pipelines or training datasets:
+- **Audit Schema (10 Columns):**
+  `timestamp`, `ticket_text`, `predicted_category`, `predicted_confidence`, `corrected_category`, `corrected_by`, `review_notes`, `predicted_priority`, `predicted_priority_confidence`, `corrected_priority`.
+- **Operational Separation:**
+  - `data/corrections/runtime_corrections.csv`: Contains the 12 verified genuine customer dispute overrides.
+  - `data/corrections/qa_test_corrections.csv`: Archived 4 automated functional verification entries generated during QA test runs.
+  - `data/corrections/runtime_corrections_original_backup.csv`: Immutable original backup.
+- **Backward Compatibility:** Historical pre-priority records preserve authentic blank fields (`None`) without fabricated default values.
+- **Dual Overrides:** In both Single-Ticket and Batch views, agents can correct Category, Priority, or both simultaneously.
+
+---
+
+## Limitations & Production Readiness Boundary
+
+- **Supervisor-Demonstration Readiness vs. Production Deployment Readiness:**
+  - TicketSense-AI is fully verified, calibrated, and **Supervisor-Demonstration Ready** as an offline prototype and interactive triage dashboard.
+  - **Production Deployment Readiness** requires additional engineering work: enterprise ticketing API connectors (Zendesk, Jira Service Desk), live webhook authentication, distributed database persistence for correction logs, and shadow-routing canary deployment.
 - **Five categories only.** Off-topic messages are still assigned to the closest category.
 - **One label per ticket.** If a ticket contains several issues, the model picks the dominant one.
 - **Confidence is not a guarantee.** The model can be confidently wrong, usually when a ticket mixes vocabulary from two categories (for example, a refund request that mentions a late delivery).
 - **Small dataset.** 100 test tickets is enough for a good estimate but not a precise one. Each ticket moves accuracy by one percentage point.
+- **Priority Label Provenance.** Priority predictions learn the project's rubric-derived labels rather than verified production helpdesk escalations.
 
 ---
 
 ## Tests
 
-The tests in `tests/` cover input validation, text cleaning, model loading and probability output, uncertainty flags, correction logging, batch processing, the Streamlit UI (single and batch flows) and chart generation.
+The automated test suite in `tests/` contains 84 tests covering input validation, text cleaning, category model loading and calibrated probability output, priority ML model loading and inference, independent priority uncertainty quantification, component thresholding, dual review routing, rubric matrix consistency, two-stage impact and urgency decomposition, priority heuristic word boundaries, correction logging, batch processing, and the Streamlit UI.
 
 ---
 

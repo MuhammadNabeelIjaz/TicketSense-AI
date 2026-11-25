@@ -1,0 +1,10 @@
+{
+  "candidate": "FE-3 Lexical Two-Stage",
+  "accuracy": 0.89,
+  "macro_f1": 0.7445848504319269,
+  "high_precision": 0.5,
+  "high_recall": 0.75,
+  "false_low_high": 0,
+  "false_low_med": 3,
+  "total_false_lows": 3
+}

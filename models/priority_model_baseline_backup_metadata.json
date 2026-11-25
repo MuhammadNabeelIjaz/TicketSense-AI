@@ -1,0 +1,94 @@
+{
+  "model_name": "Two-Stage Rubric-Based Priority Classifier",
+  "timestamp_utc": "2026-11-25T00:55:00.000000+00:00",
+  "architecture": "Stage 1: Impact TF-IDF + Balanced LR -> Stage 2: Urgency TF-IDF + Balanced LR -> Stage 3: Authoritative Rubric",
+  "train_samples": 400,
+  "val_samples": 100,
+  "classes": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "hyperparameters": {
+    "impact_classifier": {
+      "c_imp": 2.0,
+      "ngram_range": [
+        1,
+        2
+      ],
+      "class_weight": "balanced"
+    },
+    "urgency_classifier": {
+      "c_urg": 1.0,
+      "ngram_range": [
+        1,
+        2
+      ],
+      "class_weight": "balanced"
+    }
+  },
+  "validation_metrics": {
+    "priority_accuracy": 0.87,
+    "priority_macro_precision": 0.840422322775264,
+    "priority_macro_recall": 0.670150987224158,
+    "priority_macro_f1": 0.7271383159606714,
+    "priority_weighted_f1": 0.8657972943002883,
+    "impact_accuracy": 0.89,
+    "urgency_accuracy": 0.91
+  },
+  "uncertainty_routing_policy": {
+    "priority_confidence_threshold": 0.60,
+    "priority_margin_threshold": 0.15,
+    "component_threshold": 0.50,
+    "high_risk_threshold": 0.15,
+    "critical_incident_guardrail": true,
+    "validation_human_review_rate": 0.55,
+    "validation_autonomous_coverage": 0.45,
+    "validation_autonomous_accuracy": 0.9778,
+    "validation_false_low_flagged_rate": 0.875,
+    "validation_high_recall_with_review": 1.00
+  },
+  "per_class_validation": {
+    "High": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 4.0
+    },
+    "Medium": {
+      "precision": 0.6153846153846154,
+      "recall": 0.5714285714285714,
+      "f1-score": 0.5925925925925926,
+      "support": 14.0
+    },
+    "Low": {
+      "precision": 0.9058823529411765,
+      "recall": 0.9390243902439024,
+      "f1-score": 0.9221556886227545,
+      "support": 82.0
+    }
+  },
+  "confusion_matrix_labels": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "confusion_matrix": [
+    [
+      2,
+      0,
+      2
+    ],
+    [
+      0,
+      8,
+      6
+    ],
+    [
+      0,
+      5,
+      77
+    ]
+  ],
+  "disclaimer": "Priority labels are rubric-derived (Impact x Urgency matrix), not historical operational ground truth."
+}

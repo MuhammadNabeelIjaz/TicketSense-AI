@@ -14,10 +14,10 @@ def test_streamlit_app_loads_and_renders_tabs():
     assert not at.exception
     assert len(at.tabs) == 4
     tab_labels = [t.label for t in at.tabs]
-    assert "🎯 Single Ticket" in tab_labels
-    assert "📂 Batch Processing" in tab_labels
-    assert "📈 Performance & Governance" in tab_labels
-    assert "📝 Corrections Log" in tab_labels
+    assert "Single Ticket" in tab_labels
+    assert "Batch Processing" in tab_labels
+    assert "Performance & Governance" in tab_labels
+    assert "Corrections Log" in tab_labels
 
 
 def test_streamlit_app_single_ticket_prediction_workflow():
@@ -33,7 +33,9 @@ def test_streamlit_app_single_ticket_prediction_workflow():
     assert "Predicted Category" in metric_labels
     assert "Model Confidence" in metric_labels
     assert "Triage Status" in metric_labels
-    assert "Priority (Heuristic)" in metric_labels
+    assert "Priority (ML)" in metric_labels
+    assert "Predicted Impact" in metric_labels
+    assert "Predicted Urgency" in metric_labels
 
 
 def test_streamlit_app_renders_all_performance_visualizations():
@@ -41,4 +43,3 @@ def test_streamlit_app_renders_all_performance_visualizations():
     at.run()
     assert not at.exception
     assert len(at.image) == 6
-
