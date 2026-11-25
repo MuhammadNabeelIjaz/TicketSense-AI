@@ -86,21 +86,20 @@ TicketSense-AI/
 |   |-- models/                 # Category and priority ML pipelines
 |   |-- inference/              # InferenceEngine, uncertainty gates, priority predictor
 |   `-- visualization.py        # Evaluation charts
-|-- screenshots/                # Model and application visual assets
-|   |-- Category_Model/         # Confusion matrix, classification report, confidence curve
+|-- screenshots/                # Model, application, and testing visual assets
+|   |-- Application_Overview/   # Streamlit UI, single ticket, batch processing, human review
+|   |-- Category_Model/         # Confusion matrix, classification report, calibration curve
 |   |-- Priority_Model/         # Confusion matrix, classification report, components, routing
-|   `-- Application_Overview/   # Streamlit UI, single ticket, batch processing, human review
+|   `-- Testing_Evidence/       # Automated pytest ledger, integrity hashes, clean extraction
 |-- scripts/                    # Verification, packaging, and evaluation scripts
 |-- tests/                      # 84 automated tests (100% passing)
-|-- models/                     # Serialized production models and metadata
+|-- models/                     # Exactly TWO serialized production models and metadata
 |   |-- category_model.joblib
 |   |-- category_model_metadata.json
 |   |-- priority_model.joblib
 |   `-- priority_model_metadata.json
-|-- reports/                    # Final project report and visual figures
-|   |-- FINAL_PROJECT_REPORT.md
-|   `-- visualizations/
-|-- archive/                    # Archived historical reports, experiment artifacts, and documentation
+|-- reports/                    # Final technical project report
+|   `-- FINAL_PROJECT_REPORT.md
 `-- data/
     |-- processed/              # Train, validation and test data
     `-- corrections/            # Agent corrections audit logs

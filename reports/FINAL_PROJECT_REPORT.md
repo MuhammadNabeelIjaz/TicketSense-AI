@@ -379,7 +379,7 @@ The audit scripts and reports are kept locally in `docs/archive/final_independen
 | Streamlit | 1.42.1 | Web app |
 | pytest | 9.2.0 | Tests |
 
-See the README for the repository layout and setup instructions. Core reports and visual figures are in `reports/` and `screenshots/`, with archived experiment logs in `archive/reports/experiment_artifacts/`.
+See the README for the repository layout and setup instructions. Core reports and visual figures are located in `reports/` and `screenshots/`.
 
 ---
 
