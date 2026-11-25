@@ -15,7 +15,7 @@ PROCESSED_DATA_DIR: Path = DATA_DIR / "processed"
 CORRECTIONS_DIR: Path = DATA_DIR / "corrections"
 MODELS_DIR: Path = PROJECT_ROOT / "models"
 REPORTS_DIR: Path = PROJECT_ROOT / "reports"
-VISUALIZATIONS_DIR: Path = REPORTS_DIR / "visualizations"
+VISUALIZATIONS_DIR: Path = PROJECT_ROOT / "screenshots" / "Category_Model"
 FIGURES_DIR: Path = VISUALIZATIONS_DIR
 TESTS_DIR: Path = PROJECT_ROOT / "tests"
 
@@ -29,6 +29,8 @@ REVIEW_QUEUE_PATH: Path = PROCESSED_DATA_DIR / "dataset_review_required.csv"
 # Model Artifacts
 CATEGORY_MODEL_PATH: Path = MODELS_DIR / "category_model.joblib"
 CATEGORY_METADATA_PATH: Path = MODELS_DIR / "category_model_metadata.json"
+PRIORITY_MODEL_PATH: Path = MODELS_DIR / "priority_model.joblib"
+PRIORITY_METADATA_PATH: Path = MODELS_DIR / "priority_model_metadata.json"
 
 # Approved Taxonomies
 APPROVED_CATEGORIES: List[str] = [

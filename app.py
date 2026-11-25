@@ -18,13 +18,16 @@ import matplotlib.pyplot as plt
 
 from ticketsense.config import (
     CATEGORY_MODEL_PATH,
+    CATEGORY_METADATA_PATH,
+    PRIORITY_MODEL_PATH,
+    PRIORITY_METADATA_PATH,
+    MODELS_DIR,
     APPROVED_CATEGORIES,
     APPROVED_PRIORITIES,
     DEFAULT_UNCERTAINTY_THRESHOLD,
     DEFAULT_UNCERTAINTY_MARGIN,
     PRIORITY_POLICY_STATUS_MESSAGE,
     RUNTIME_CORRECTIONS_PATH,
-    CATEGORY_METADATA_PATH,
     REPORTS_DIR,
 )
 from ticketsense.inference.engine import InferenceEngine
@@ -81,6 +84,21 @@ def render_header():
     val_acc = val_metrics.get("accuracy", 0.93)
     val_f1 = val_metrics.get("macro_f1", 0.9297)
 
+    prio_meta = {}
+    if PRIORITY_METADATA_PATH.exists():
+        try:
+            with open(PRIORITY_METADATA_PATH, "r", encoding="utf-8") as f:
+                prio_meta = json.load(f)
+        except Exception:
+            pass
+
+    prio_arch = prio_meta.get("model_name", "FE-3 Lexical Augmented Two-Stage Rubric Model")
+    prio_val_metrics = prio_meta.get("validation_metrics", {})
+    prio_acc = prio_val_metrics.get("priority_accuracy", 0.89)
+    prio_f1 = prio_val_metrics.get("priority_macro_f1", 0.7446)
+    prio_routing = prio_meta.get("uncertainty_routing_policy", {})
+    prio_rev_rate = prio_routing.get("validation_human_review_rate", 0.35)
+
     with st.expander("System Architecture & Governance Status", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
@@ -92,10 +110,10 @@ def render_header():
             )
         with col2:
             st.markdown(
-                "**Priority Classifier:** Active (Two-Stage Rubric ML Model)  \n"
-                "- Architecture: Stage 1 (Impact LR) + Stage 2 (Urgency LR) -> Stage 3 (3x3 Matrix)  \n"
-                "- Validation Accuracy: **87.0%** | Macro F1: **0.727** | High Precision: **100%**  \n"
-                "- Status: *Trained on development rubric labels (Impact x Urgency matrix). Heuristic preserved as fallback.*"
+                f"**Priority Classifier:** Active ({prio_arch})  \n"
+                f"- Architecture: Stage 1 (Impact TF-IDF + Lexical) + Stage 2 (Urgency TF-IDF + Lexical) -> Stage 3 (Rubric)  \n"
+                f"- Validation Accuracy: **{prio_acc*100:.1f}%** | Macro F1: **{prio_f1:.3f}** | High Recall: **75.0%** (0 High False-Lows)  \n"
+                f"- Triage Safety: **{100 - prio_rev_rate*100:.1f}% Autonomous** ({prio_routing.get('validation_autonomous_accuracy', 0.9385)*100:.1f}% acc), **{prio_rev_rate*100:.1f}% Human Review**"
             )
 
 
@@ -205,6 +223,47 @@ def render_single_ticket_tab(engine: InferenceEngine):
             )
         if not cat_flag and not prio_flag:
             st.success("Autonomous Acceptance: Both Category and Priority predictions meet all safety thresholds.")
+
+        # Structured Comprehensive Prediction Breakdown Table
+        st.markdown("#### Comprehensive Prediction & Safety Triage Breakdown")
+        pred_table_data = [
+            {
+                "Decision Dimension": "Operational Category",
+                "Model Output": result["predicted_category"],
+                "Confidence / Score": f"{result['confidence']:.2%}",
+                "Safety Status": "Review Required" if cat_flag else "Autonomous Acceptance",
+                "Routing Logic": result["uncertainty_reason"],
+            },
+            {
+                "Decision Dimension": "Operational Priority",
+                "Model Output": result["priority"],
+                "Confidence / Score": prio_conf_str,
+                "Safety Status": "Review Required" if prio_flag else "Autonomous Acceptance",
+                "Routing Logic": result.get("priority_uncertainty_reason") or "Meets autonomous confidence criteria",
+            },
+            {
+                "Decision Dimension": "Stage 1: Disruption Impact",
+                "Model Output": str(result.get("predicted_impact") or "N/A"),
+                "Confidence / Score": f"{imp_conf:.2%}" if imp_conf is not None else "N/A",
+                "Safety Status": "Component Analyzed",
+                "Routing Logic": "Stage 1 Regularized LR + TF-IDF & Domain Lexical Indicators",
+            },
+            {
+                "Decision Dimension": "Stage 2: Time Urgency",
+                "Model Output": str(result.get("predicted_urgency") or "N/A"),
+                "Confidence / Score": f"{urg_conf:.2%}" if urg_conf is not None else "N/A",
+                "Safety Status": "Component Analyzed",
+                "Routing Logic": "Stage 2 Regularized LR + TF-IDF & Domain Lexical Indicators",
+            },
+            {
+                "Decision Dimension": "Overall Triage Decision",
+                "Model Output": "Human Supervisor Review" if (cat_flag or prio_flag) else "Autonomous Routing",
+                "Confidence / Score": "Dual-Gate Evaluation",
+                "Safety Status": "Review Required" if (cat_flag or prio_flag) else "Autonomous Acceptance",
+                "Routing Logic": "Dual-channel uncertainty safety policy enforcement",
+            },
+        ]
+        st.dataframe(pd.DataFrame(pred_table_data), use_container_width=True, hide_index=True)
 
         # Summary and Priority Policy
         col_sum, col_pol = st.columns(2)
@@ -481,17 +540,30 @@ def render_performance_tab():
     """Render model performance and governance documentation tab."""
     st.subheader("Model Evaluation & Governance")
 
-    # Metrics Overview
-    eval_file = REPORTS_DIR / "CATEGORY_MODEL_EVALUATION.md"
-    if eval_file.exists():
-        with open(eval_file, "r", encoding="utf-8") as f:
-            content = f.read()
-        st.markdown(content)
-    else:
-        st.info("Evaluation report will appear here once model training is completed.")
+    # Production Model Performance Scorecard
+    st.markdown("#### Production Models Evaluation Scorecard")
+    scorecard_data = [
+        {
+            "Operational Model": "Category Classifier (Calibrated MNB)",
+            "Pipeline Architecture": "TF-IDF (1,2) + Multinomial NB + Sigmoid 5-Fold Calibration",
+            "Validation Acc / F1": "93.00% / 0.9297",
+            "Locked Test Acc": "92.00% (100 samples)",
+            "Autonomous Coverage": "90.0% Coverage (94.44% Accuracy)",
+            "Key Governance Metric": "Brier Score: 0.1441 (vs 0.4883 uncalibrated baseline)",
+        },
+        {
+            "Operational Model": "Priority Classifier (FE-3 Production)",
+            "Pipeline Architecture": "Two-Stage Rubric (Impact LR + Urgency LR + Lexical Indicators)",
+            "Validation Acc / F1": "89.00% / 0.7446",
+            "Locked Test Acc": "66.00% (Synthetic Shift)",
+            "Autonomous Coverage": "65.0% Coverage (93.85% Accuracy)",
+            "Key Governance Metric": "100.0% Effective High Safety Recall (Zero High False-Lows)",
+        },
+    ]
+    st.dataframe(pd.DataFrame(scorecard_data), use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    st.markdown("### Production Model Visualizations & Evaluation")
+    st.markdown("### Category Model Production Visualizations")
 
     # Row 1: Dataset Distribution & Model Experiments
     col1, col2 = st.columns(2)
@@ -532,15 +604,34 @@ def render_performance_tab():
         st.pyplot(fig_rev)
         plt.close(fig_rev)
 
+    # Row 4: Priority Model Production Visualizations
+    st.markdown("---")
+    st.markdown("### Priority Model Production Visualizations")
+    prio_cm_img = PROJECT_ROOT / "screenshots" / "Priority_Model" / "01_priority_confusion_matrix.png"
+    prio_rout_img = PROJECT_ROOT / "screenshots" / "Priority_Model" / "04_priority_uncertainty_routing_breakdown.png"
+
+    col7, col8 = st.columns(2)
+    with col7:
+        st.markdown("#### Priority Model Validation Confusion Matrix")
+        if prio_cm_img.exists():
+            st.image(str(prio_cm_img), use_container_width=True)
+        else:
+            st.info("Priority confusion matrix chart generating...")
+    with col8:
+        st.markdown("#### Priority Review Workload Reduction")
+        if prio_rout_img.exists():
+            st.image(str(prio_rout_img), use_container_width=True)
+        else:
+            st.info("Priority review routing chart generating...")
+
     # Governance Notice
     st.markdown("---")
     st.markdown("### Governance & Priority Model Policy")
     st.markdown(
         """
-        - **Priority ML Model:** Two-Stage Rubric-Based Classifier trained on development split (`models/priority_model.joblib`).
-        - **Architecture:** Stage 1 predicts Impact (I1, I2, I3), Stage 2 predicts Urgency (U1, U2, U3), and Stage 3 maps components deterministically through the authoritative 3x3 Rubric matrix.
-        - **Labeling Rubric:** Priority labels are rubric-derived (3x3 Impact x Urgency matrix), not operational ground truth.
-        - **Class Imbalance Mitigation:** Inverse class weighting (`class_weight='balanced'`) prevents majority class collapse on minority High urgency.
+        - **Priority ML Model:** FE-3 Lexical Augmented Two-Stage Rubric Model (`models/priority_model.joblib`).
+        - **Architecture:** Stage 1 predicts Impact (I1, I2, I3), Stage 2 predicts Urgency (U1, U2, U3) using regularized Logistic Regression with TF-IDF and domain lexical features, and Stage 3 maps components through the authoritative 3x3 Rubric matrix.
+        - **Performance:** 89.00% validation accuracy, 0.7446 Macro F1, 75.00% High recall, zero High false-lows, and 100.0% Effective High Safety Recall under the Priority Uncertainty Gate.
         - **Review Queue:** The 26 candidate review queue records (`data/processed/dataset_review_required.csv`) remain segregated pending supervisor adjudication.
         """
     )

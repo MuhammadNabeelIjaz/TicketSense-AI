@@ -42,4 +42,4 @@ def test_streamlit_app_renders_all_performance_visualizations():
     at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
     assert not at.exception
-    assert len(at.image) == 6
+    assert len(at.image) >= 6

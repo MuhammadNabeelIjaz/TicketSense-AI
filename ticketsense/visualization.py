@@ -31,7 +31,7 @@ from ticketsense.config import (
 try:
     from ticketsense.config import VISUALIZATIONS_DIR
 except ImportError:
-    VISUALIZATIONS_DIR = REPORTS_DIR / "visualizations"
+    VISUALIZATIONS_DIR = PROJECT_ROOT / "screenshots" / "Category_Model"
 
 # Professional visualization palette
 PRIMARY_BLUE = "#2563eb"
