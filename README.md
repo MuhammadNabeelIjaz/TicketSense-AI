@@ -2,7 +2,7 @@
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 71 Passed](https://img.shields.io/badge/tests-71%20passed-brightgreen.svg)]()
+[![Tests: 85 Passed](https://img.shields.io/badge/tests-85%20passed-brightgreen.svg)]()
 [![Test Accuracy: 92%](https://img.shields.io/badge/test%20accuracy-92.0%25-success.svg)]()
 
 TicketSense-AI classifies customer support tickets into five categories and shows how confident it is in each prediction. Confident predictions are accepted automatically. Uncertain or ambiguous ones are flagged for a human to review, and any corrections the reviewer makes are saved to a CSV file for later use.
@@ -98,8 +98,9 @@ TicketSense-AI/
 |   |-- category_model_metadata.json
 |   |-- priority_model.joblib
 |   `-- priority_model_metadata.json
-|-- reports/                    # Final technical project report
-|   `-- FINAL_PROJECT_REPORT.md
+|-- reports/                    # Final technical project report & verification ledger
+|   |-- FINAL_PROJECT_REPORT.md
+|   `-- FINAL_RELEASE_AND_SUBMISSION_VERIFICATION.md
 `-- data/
     |-- processed/              # Train, validation and test data
     `-- corrections/            # Agent corrections audit logs
@@ -123,7 +124,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Run the tests (all 83 pass in under 30 seconds):
+Run the tests (all 85 pass in under 32 seconds):
 
 ```powershell
 .venv\Scripts\pytest.exe -v
